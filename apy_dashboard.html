@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stablecoin APY Dashboard — April 9, 2026</title>
+<style>
+:root {
+  --bg: #f5f5f7;
+  --card-bg: #ffffff;
+  --text: #1d1d1f;
+  --text-secondary: #86868b;
+  --border: #d2d2d7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+  --apy-high: #34c759;
+  --apy-mid: #ff9f0a;
+  --apy-low: #86868b;
+  --apy-na: #86868b;
+  --radius: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --card-bg: #1c1c1e;
+    --text: #f5f5f7;
+    --text-secondary: #98989d;
+    --border: #38383a;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
+  }
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding: 2rem 1rem;
+}
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
+}
+header .date {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+@media (min-width: 640px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  .card.wide { grid-column: span 2; }
+}
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  transition: transform 0.15s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+}
+.card h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.card h2 .icon {
+  font-size: 1.3rem;
+}
+.inline-data {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+.no-data {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+th {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+.apy-high { color: var(--apy-high); font-weight: 600; }
+.apy-mid { color: var(--apy-mid); font-weight: 600; }
+.apy-low { color: var(--text-secondary); }
+.apy-na { color: var(--apy-na); }
+.tvl { color: var(--text-secondary); }
+footer {
+  text-align: center;
+  margin-top: 2.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+  <h1>📊 Stablecoin APY Dashboard</h1>
+  <p class="date">April 9, 2026</p>
+</header>
+<div class="grid">
+<section class="card wide"><h2><span class="icon">🔵</span> Fluid Lending</h2><div class="table-wrap"><table><thead><tr><th>Chain</th><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>Ethereum</td><td>USDC</td><td class="apy-low">2.54%</td><td class="tvl">$209M</td></tr><tr><td>Ethereum</td><td>USDT</td><td class="apy-low">2.97%</td><td class="tvl">$128M</td></tr><tr><td>Arbitrum</td><td>USDC</td><td class="apy-low">3.62%</td><td class="tvl">$31M</td></tr><tr><td>Arbitrum</td><td>USDT</td><td class="apy-low">4.00%</td><td class="tvl">$37M</td></tr><tr><td>Base</td><td>USDC</td><td class="apy-low">2.94%</td><td class="tvl">$10M</td></tr><tr><td>Base</td><td>EURC</td><td class="apy-low">1.47%</td><td class="tvl">$2M</td></tr><tr><td>BSC</td><td>USDC</td><td class="apy-low">0.18%</td><td class="tvl">$26M</td></tr><tr><td>BSC</td><td>USDT</td><td class="apy-low">1.22%</td><td class="tvl">$68M</td></tr></tbody></table></div></section><section class="card"><h2><span class="icon">🟣</span> Hyperliquid HLP Vault</h2><p class="inline-data">TVL: $415M | Month return: ~-5.00% | Est. APY: ~-60% ⚠️ trading vault</p></section><section class="card"><h2><span class="icon">🟡</span> Falcon Finance — sUSDf</h2><p class="inline-data">APY: ⚠️ No public API — check https://app.falcon.finance/earn/classic</p></section><section class="card wide"><h2><span class="icon">🔷</span> Morpho — USDC/USDT ≥ 3.5% APY</h2><div class="table-wrap"><table><thead><tr><th>Vault</th><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>Steakhouse Prime USDC</td><td>USDC</td><td class="apy-low">4.21%</td><td class="tvl">$468M</td></tr><tr><td>Gauntlet USDC Prime</td><td>USDC</td><td class="apy-low">4.21%</td><td class="tvl">$358M</td></tr><tr><td>Steakhouse Reservoir USDC</td><td>USDC</td><td class="apy-mid">6.80%</td><td class="tvl">$107M</td></tr><tr><td>Gauntlet USDT Frontier</td><td>USDT</td><td class="apy-low">3.60%</td><td class="tvl">$65M</td></tr><tr><td>Smokehouse USDC</td><td>USDC</td><td class="apy-low">4.58%</td><td class="tvl">$60M</td></tr><tr><td>Smokehouse USDT</td><td>USDT</td><td class="apy-low">3.56%</td><td class="tvl">$40M</td></tr><tr><td>Felix USDC</td><td>USDC</td><td class="apy-low">3.66%</td><td class="tvl">$36M</td></tr><tr><td>Froge&#x27;s USDC</td><td>USDC</td><td class="apy-low">4.21%</td><td class="tvl">$24M</td></tr><tr><td>Hyperithm USDC Apex</td><td>USDC</td><td class="apy-mid">6.61%</td><td class="tvl">$23M</td></tr><tr><td>Steakhouse High Yield USD</td><td>USDC</td><td class="apy-mid">5.05%</td><td class="tvl">$21M</td></tr><tr><td>Steakhouse High Yield USD</td><td>USDC</td><td class="apy-low">3.91%</td><td class="tvl">$21M</td></tr><tr><td>Felix USDC (Frontier)</td><td>USDC</td><td class="apy-low">4.13%</td><td class="tvl">$18M</td></tr></tbody></table></div></section><section class="card"><h2><span class="icon">🟢</span> Maple Finance</h2><div class="table-wrap"><table><thead><tr><th>Asset</th><th>APY</th><th>AUM</th></tr></thead><tbody><tr><td>USDC</td><td class="apy-low">4.25%</td><td class="tvl">$2.75B</td></tr><tr><td>USDT</td><td class="apy-low">3.65%</td><td class="tvl">$1.91B</td></tr></tbody></table></div></section><section class="card wide"><h2><span class="icon">🪐</span> Jupiter Lend (Solana)</h2><div class="table-wrap"><table><thead><tr><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>USDC</td><td class="apy-low">3.59%</td><td class="tvl">$481M</td></tr><tr><td>JUPUSD</td><td class="apy-low">4.32%</td><td class="tvl">$100M</td></tr><tr><td>USDT</td><td class="apy-low">2.60%</td><td class="tvl">$23M</td></tr><tr><td>USDS</td><td class="apy-low">4.52%</td><td class="tvl">$19M</td></tr><tr><td>EURC</td><td class="apy-low">0.50%</td><td class="tvl">$13M</td></tr></tbody></table></div></section><section class="card"><h2><span class="icon">🌑</span> sUSDe (Ethena)</h2><p class="inline-data">APY: 3.49% | TVL: $6.58B</p></section><section class="card"><h2><span class="icon">🌕</span> sUSDS (Sky)</h2><p class="inline-data">APY: 3.75% | TVL: $6.46B</p></section>
+</div>
+<footer>Last updated: 2026-04-09 09:59 UTC</footer>
+</div>
+</body>
+</html>
