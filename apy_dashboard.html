@@ -3,150 +3,106 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stablecoin APY Dashboard — April 10, 2026</title>
+<title>Stablecoin APY Dashboard &mdash; April 10, 2026</title>
+<meta name="description" content="Daily stablecoin yield comparison across DeFi protocols">
+<meta property="og:title" content="Stablecoin APY Dashboard">
+<meta property="og:description" content="Daily stablecoin yield comparison across top DeFi lending protocols">
+<meta property="og:type" content="website">
 <style>
-:root {
-  --bg: #f5f5f7;
-  --card-bg: #ffffff;
-  --text: #1d1d1f;
-  --text-secondary: #86868b;
-  --border: #d2d2d7;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-  --apy-high: #34c759;
-  --apy-mid: #ff9f0a;
-  --apy-low: #86868b;
-  --apy-na: #86868b;
-  --radius: 16px;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000000;
-    --card-bg: #1c1c1e;
-    --text: #f5f5f7;
-    --text-secondary: #98989d;
-    --border: #38383a;
-    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
-  }
-}
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  padding: 2rem 1rem;
-}
-.container {
-  max-width: 960px;
-  margin: 0 auto;
-}
-header {
-  text-align: center;
-  margin-bottom: 2.5rem;
-}
-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.25rem;
-}
-header .date {
-  font-size: 1.05rem;
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-.grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.25rem;
-}
-@media (min-width: 640px) {
-  .grid { grid-template-columns: repeat(2, 1fr); }
-  .card.wide { grid-column: span 2; }
-}
-.card {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.5rem;
-  border: 1px solid var(--border);
-  transition: transform 0.15s ease;
-}
-.card:hover {
-  transform: translateY(-2px);
-}
-.card h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.card h2 .icon {
-  font-size: 1.3rem;
-}
-.inline-data {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  word-break: break-word;
-}
-.no-data {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-.table-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-th {
-  text-align: left;
-  padding: 0.5rem 0.6rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-td {
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-tr:last-child td {
-  border-bottom: none;
-}
-.apy-high { color: var(--apy-high); font-weight: 600; }
-.apy-mid { color: var(--apy-mid); font-weight: 600; }
-.apy-low { color: var(--text-secondary); }
-.apy-na { color: var(--apy-na); }
-.tvl { color: var(--text-secondary); }
-footer {
-  text-align: center;
-  margin-top: 2.5rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
+:root {--bg:#f5f5f7;--card-bg:#fff;--text:#1d1d1f;--text-secondary:#86868b;--border:#d2d2d7;--shadow:0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.04);--orange:#ff9f0a;--red:#ff3b30;--radius:16px}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card-bg:#1c1c1e;--text:#f5f5f7;--text-secondary:#98989d;--border:#38383a;--shadow:0 1px 3px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.2)}}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;padding:2rem 1rem}
+.container{max-width:960px;margin:0 auto}
+header{text-align:center;margin-bottom:2.5rem}
+header h1{font-family:"New York","SF Pro Display",Georgia,"Times New Roman",serif;font-size:2rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.25rem}
+header .date{font-size:1.05rem;color:var(--text-secondary);font-weight:400}
+header .sources{font-size:.8rem;color:var(--text-secondary);margin-top:.35rem;opacity:.7}
+.grid{display:grid;grid-template-columns:1fr;gap:1.25rem}
+@media(min-width:640px){.grid{grid-template-columns:repeat(2,1fr)}.card.wide{grid-column:span 2}}
+.card{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem;border:1px solid var(--border);transition:transform .15s ease;position:relative}
+.card:hover{transform:translateY(-2px)}
+.card h2{font-size:1.1rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;gap:.4rem}
+.card h2 .icon{font-size:1.3rem}
+.card .src{position:absolute;top:.75rem;right:1rem;font-size:.65rem;color:var(--text-secondary);opacity:.5;text-transform:uppercase;letter-spacing:.05em}
+.inline-data{color:var(--text-secondary);font-size:.95rem;word-break:break-word}
+.inline-data a{color:var(--text-secondary);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;padding:.5rem .6rem;color:var(--text-secondary);font-weight:500;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:.5rem .6rem;border-bottom:1px solid var(--border);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.apy-mid{color:var(--orange);font-weight:600}.apy-neg{color:var(--red);font-weight:600}.tvl{color:var(--text-secondary)}
+.chain-tag{font-size:.72rem;color:var(--text-secondary);background:var(--bg);padding:.1rem .4rem;border-radius:4px;font-weight:500}
+.note{font-size:.78rem;color:var(--text-secondary);margin-top:.5rem;opacity:.7}
+.error-msg{color:var(--red);font-size:.85rem;padding:.5rem 0}
+footer{text-align:center;margin-top:2.5rem;font-size:.82rem;color:var(--text-secondary)}
+footer .legend{margin-top:.4rem;font-size:.75rem;opacity:.6}
 </style>
 </head>
 <body>
 <div class="container">
 <header>
-  <h1>📊 Stablecoin APY Dashboard</h1>
+  <h1>Stablecoin APY Dashboard</h1>
   <p class="date">April 10, 2026</p>
+  <p class="sources">Updated daily at 9:00 AM Dubai time</p>
 </header>
 <div class="grid">
-<section class="card wide"><h2><span class="icon">🔵</span> Fluid Lending</h2><div class="table-wrap"><table><thead><tr><th>Chain</th><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>Ethereum</td><td>USDC</td><td class="apy-low">2.53%</td><td class="tvl">$209M</td></tr><tr><td>Ethereum</td><td>USDT</td><td class="apy-low">3.17%</td><td class="tvl">$128M</td></tr><tr><td>Arbitrum</td><td>USDC</td><td class="apy-low">3.81%</td><td class="tvl">$31M</td></tr><tr><td>Arbitrum</td><td>USDT</td><td class="apy-low">3.98%</td><td class="tvl">$37M</td></tr><tr><td>Base</td><td>USDC</td><td class="apy-low">2.95%</td><td class="tvl">$10M</td></tr><tr><td>Base</td><td>EURC</td><td class="apy-low">1.54%</td><td class="tvl">$2M</td></tr><tr><td>BSC</td><td>USDC</td><td class="apy-low">0.17%</td><td class="tvl">$26M</td></tr><tr><td>BSC</td><td>USDT</td><td class="apy-low">1.21%</td><td class="tvl">$68M</td></tr></tbody></table></div></section><section class="card"><h2><span class="icon">🟣</span> Hyperliquid HLP Vault</h2><p class="inline-data">TVL: $411M | Month return: ~-2.33% | Est. APY: ~-28% ⚠️ trading vault</p></section><section class="card"><h2><span class="icon">🟡</span> Falcon Finance — sUSDf</h2><p class="inline-data">APY: ⚠️ No public API — check https://app.falcon.finance/earn/classic</p></section><section class="card wide"><h2><span class="icon">🔷</span> Morpho — USDC/USDT ≥ 3.5% APY</h2><div class="table-wrap"><table><thead><tr><th>Vault</th><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>Steakhouse Prime USDC</td><td>USDC</td><td class="apy-low">4.15%</td><td class="tvl">$471M</td></tr><tr><td>Gauntlet USDC Prime</td><td>USDC</td><td class="apy-low">4.16%</td><td class="tvl">$357M</td></tr><tr><td>Steakhouse Reservoir USDC</td><td>USDC</td><td class="apy-mid">7.26%</td><td class="tvl">$105M</td></tr><tr><td>Smokehouse USDC</td><td>USDC</td><td class="apy-mid">5.15%</td><td class="tvl">$57M</td></tr><tr><td>Felix USDC</td><td>USDC</td><td class="apy-mid">5.07%</td><td class="tvl">$32M</td></tr><tr><td>Froge&#x27;s USDC</td><td>USDC</td><td class="apy-low">4.32%</td><td class="tvl">$24M</td></tr><tr><td>Steakhouse High Yield USD</td><td>USDC</td><td class="apy-mid">5.20%</td><td class="tvl">$22M</td></tr><tr><td>Hyperithm USDC Apex</td><td>USDC</td><td class="apy-mid">6.18%</td><td class="tvl">$19M</td></tr><tr><td>Felix USDC (Frontier)</td><td>USDC</td><td class="apy-low">4.42%</td><td class="tvl">$18M</td></tr><tr><td>Hyperithm USDC Apex</td><td>USDC</td><td class="apy-low">4.80%</td><td class="tvl">$16M</td></tr><tr><td>Gauntlet USDC Prime</td><td>USDC</td><td class="apy-low">4.72%</td><td class="tvl">$14M</td></tr><tr><td>ALPHA USDC Core</td><td>USDC</td><td class="apy-mid">5.55%</td><td class="tvl">$13M</td></tr></tbody></table></div></section><section class="card"><h2><span class="icon">🟢</span> Maple Finance</h2><div class="table-wrap"><table><thead><tr><th>Asset</th><th>APY</th><th>AUM</th></tr></thead><tbody><tr><td>USDC</td><td class="apy-low">4.25%</td><td class="tvl">$3.58B</td></tr><tr><td>USDT</td><td class="apy-low">3.65%</td><td class="tvl">$1.96B</td></tr></tbody></table></div></section><section class="card wide"><h2><span class="icon">🪐</span> Jupiter Lend (Solana)</h2><div class="table-wrap"><table><thead><tr><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>USDC</td><td class="apy-low">3.64%</td><td class="tvl">$481M</td></tr><tr><td>JUPUSD</td><td class="apy-low">4.32%</td><td class="tvl">$100M</td></tr><tr><td>USDT</td><td class="apy-low">2.63%</td><td class="tvl">$23M</td></tr><tr><td>USDS</td><td class="apy-low">4.55%</td><td class="tvl">$19M</td></tr><tr><td>EURC</td><td class="apy-low">0.51%</td><td class="tvl">$13M</td></tr></tbody></table></div></section><section class="card"><h2><span class="icon">🌑</span> sUSDe (Ethena)</h2><p class="inline-data">APY: 3.52% | TVL: $6.58B</p></section><section class="card"><h2><span class="icon">🌕</span> sUSDS (Sky)</h2><p class="inline-data">APY: 3.75% | TVL: $6.46B</p></section>
+
+<section class="card wide">
+  <span class="src">DefiLlama</span>
+  <h2><span class="icon">&#x1F535;</span> Fluid Lending</h2>
+  <div class="table-wrap"><table><thead><tr><th>Chain</th><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>Ethereum</td><td>USDC</td><td class="">3.47%</td><td class="tvl">$209M</td></tr><tr><td>Ethereum</td><td>USDT</td><td class="">4.75%</td><td class="tvl">$127M</td></tr><tr><td>Arbitrum</td><td>USDC</td><td class="">4.83%</td><td class="tvl">$31M</td></tr><tr><td>Arbitrum</td><td>USDT</td><td class="">4.85%</td><td class="tvl">$37M</td></tr><tr><td>Base</td><td>USDC</td><td class="apy-mid">5.44%</td><td class="tvl">$10M</td></tr><tr><td>Base</td><td>EURC</td><td class="">3.76%</td><td class="tvl">$2M</td></tr><tr><td>BSC</td><td>USDC</td><td class="">4.91%</td><td class="tvl">$26M</td></tr><tr><td>BSC</td><td>USDT</td><td class="apy-mid">6.49%</td><td class="tvl">$73M</td></tr></tbody></table></div>
+  <p class="note">Net APY includes FLUID token rewards where applicable.</p>
+</section>
+
+<section class="card">
+  <span class="src">Hyperliquid API</span>
+  <h2><span class="icon">&#x1F7E3;</span> Hyperliquid HLP Vault</h2>
+  <p class="inline-data">TVL: $411M | 30D APR: <strong class="apy-neg">-0.48%</strong> | Trading vault</p>
+</section>
+
+<section class="card">
+  <span class="src">Falcon API</span>
+  <h2><span class="icon">&#x1F7E1;</span> Falcon Finance &mdash; sUSDf</h2>
+  <p class="inline-data">sUSDf APY: <strong class="apy-mid">5.82%</strong> | Staked: $88M | Protocol TVL: $2.09B</p>
+</section>
+
+<section class="card wide">
+  <span class="src">Morpho API</span>
+  <h2><span class="icon">&#x1F537;</span> Morpho &mdash; USDC/USDT &ge; 3.5% APY</h2>
+  <div class="table-wrap"><table><thead><tr><th>Vault</th><th>Asset</th><th>Net APY</th><th>TVL</th></tr></thead><tbody><tr><td>Steakhouse Prime USDC <span class="chain-tag">Base</span></td><td>USDC</td><td class="">4.11%</td><td class="tvl">$471M</td></tr><tr><td>Gauntlet USDC Prime <span class="chain-tag">Base</span></td><td>USDC</td><td class="">4.11%</td><td class="tvl">$358M</td></tr><tr><td>Steakhouse Reservoir USDC <span class="chain-tag">Ethereum</span></td><td>USDC</td><td class="apy-mid">6.95%</td><td class="tvl">$105M</td></tr><tr><td>Smokehouse USDC <span class="chain-tag">Ethereum</span></td><td>USDC</td><td class="">4.86%</td><td class="tvl">$57M</td></tr><tr><td>Felix USDC <span class="chain-tag">HyperEVM</span></td><td>USDC</td><td class="">4.33%</td><td class="tvl">$32M</td></tr><tr><td>Steakhouse High Yield USDC v1.1 <span class="chain-tag">Base</span></td><td>USDC</td><td class="apy-mid">5.27%</td><td class="tvl">$22M</td></tr><tr><td>Hyperithm USDC Apex <span class="chain-tag">Monad</span></td><td>USDC</td><td class="apy-mid">5.08%</td><td class="tvl">$19M</td></tr><tr><td>Hyperithm USDC Apex <span class="chain-tag">Ethereum</span></td><td>USDC</td><td class="">4.70%</td><td class="tvl">$16M</td></tr></tbody></table></div>
+</section>
+
+<section class="card">
+  <span class="src">Maple API</span>
+  <h2><span class="icon">&#x1F7E2;</span> Maple Finance</h2>
+  <div class="table-wrap"><table><thead><tr><th>Pool</th><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>Maple International Operations USDC</td><td>USDC</td><td class="">4.21%</td><td class="tvl">$2.77B</td></tr><tr><td>Maple International Operations USDT</td><td>USDT</td><td class="">3.68%</td><td class="tvl">$1.28B</td></tr><tr><td>Maple Institutional - Secured Lending</td><td>USDC</td><td class="apy-mid">5.46%</td><td class="tvl">$69M</td></tr><tr><td>Receivables Financing</td><td>USDC</td><td class="apy-mid">17.04%</td><td class="tvl">$7M</td></tr></tbody></table></div>
+</section>
+
+<section class="card wide">
+  <span class="src">DefiLlama</span>
+  <h2><span class="icon">&#x1FA90;</span> Jupiter Lend (Solana)</h2>
+  <div class="table-wrap"><table><thead><tr><th>Asset</th><th>APY</th><th>TVL</th></tr></thead><tbody><tr><td>USDC</td><td class="">3.78%</td><td class="tvl">$470M</td></tr><tr><td>JUPUSD</td><td class="">4.30%</td><td class="tvl">$100M</td></tr><tr><td>USDT</td><td class="">2.62%</td><td class="tvl">$23M</td></tr><tr><td>USDS</td><td class="">4.57%</td><td class="tvl">$18M</td></tr><tr><td>EURC</td><td class="">0.51%</td><td class="tvl">$13M</td></tr></tbody></table></div>
+</section>
+
+<section class="card">
+  <span class="src">Ethena API</span>
+  <h2><span class="icon">&#x1F311;</span> sUSDe (Ethena)</h2>
+  <p class="inline-data">No data</p>
+</section>
+
+<section class="card">
+  <span class="src">Sky API</span>
+  <h2><span class="icon">&#x1F315;</span> sUSDS (Sky)</h2>
+  <p class="inline-data">APY: <strong class="">3.75%</strong> | TVL: $6.46B</p>
+</section>
+
 </div>
-<footer>Last updated: 2026-04-10 05:00 UTC</footer>
+<footer>
+  <span>Last updated: 2026-04-10 08:57 UTC</span>
+  <div class="legend">Sources: Protocol APIs (Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter)</div>
+</footer>
 </div>
 </body>
 </html>
