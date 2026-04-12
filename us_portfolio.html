@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Dashboard &mdash; April 12, 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff; --bg-secondary: #f5f5f7; --bg-card: #ffffff;
+  --text-primary: #1d1d1f; --text-secondary: #6e6e73; --text-tertiary: #86868b;
+  --border: #d2d2d7; --border-light: #e8e8ed;
+  --green: #34c759; --green-bg: #e8f9ed; --green-text: #1a7a2e;
+  --red: #ff3b30; --red-bg: #ffeae9; --red-text: #c0291f;
+  --amber: #ff9500; --amber-bg: #fff4e0; --amber-text: #996300;
+  --blue: #007aff; --blue-bg: #e5f1ff; --blue-border: #007aff;
+  --gray-bg: #f0f0f5; --gray-text: #6e6e73;
+  --purple: #af52de; --purple-bg: #f3e8fa; --purple-text: #7b2d9e;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+  --radius: 12px; --radius-sm: 8px;
+  --hover-bg: #f5f5f7; --tab-active: #007aff; --tab-inactive: #86868b;
+  --stripe: #fafafa;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000; --bg-secondary: #1c1c1e; --bg-card: #1c1c1e;
+    --text-primary: #f5f5f7; --text-secondary: #a1a1a6; --text-tertiary: #6e6e73;
+    --border: #38383a; --border-light: #2c2c2e;
+    --green: #30d158; --green-bg: #0d3318; --green-text: #30d158;
+    --red: #ff453a; --red-bg: #3a1511; --red-text: #ff453a;
+    --amber: #ff9f0a; --amber-bg: #3a2a05; --amber-text: #ff9f0a;
+    --blue: #0a84ff; --blue-bg: #0a1e3a; --blue-border: #0a84ff;
+    --gray-bg: #2c2c2e; --gray-text: #a1a1a6;
+    --purple: #bf5af2; --purple-bg: #2a1540; --purple-text: #bf5af2;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
+    --hover-bg: #2c2c2e; --stripe: #141414;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  background: var(--bg); color: var(--text-primary);
+  -webkit-font-smoothing: antialiased; line-height: 1.5;
+}
+.header {
+  position: sticky; top: 0; z-index: 100; background: var(--bg);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-light); padding: 16px 24px 0;
+}
+@supports (backdrop-filter: blur(20px)) {
+  .header { background: color-mix(in srgb, var(--bg) 80%, transparent); }
+}
+.header-content { max-width: 1200px; margin: 0 auto; }
+.header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+.header .date { font-size: 15px; color: var(--text-secondary); margin-top: 2px; font-weight: 500; }
+.tabs { display: flex; gap: 0; margin-top: 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tab {
+  padding: 10px 18px; font-size: 14px; font-weight: 600; color: var(--tab-inactive);
+  cursor: pointer; border-bottom: 2.5px solid transparent; transition: all 0.2s ease;
+  white-space: nowrap; user-select: none;
+}
+.tab:hover { color: var(--text-primary); }
+.tab.active { color: var(--tab-active); border-bottom-color: var(--tab-active); }
+.main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.section {
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; cursor: pointer; user-select: none; transition: background 0.15s;
+}
+.section-header:hover { background: var(--hover-bg); }
+.section-title { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.section-toggle { font-size: 14px; color: var(--text-tertiary); transition: transform 0.25s ease; }
+.section.collapsed .section-toggle { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
+.section-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+thead th {
+  position: sticky; top: 0; background: var(--bg-secondary); padding: 10px 14px;
+  text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--text-secondary); border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+}
+thead th:first-child { padding-left: 20px; }
+tbody tr { transition: background 0.1s; }
+tbody tr:nth-child(even) { background: var(--stripe); }
+tbody tr:hover { background: var(--hover-bg); }
+td {
+  padding: 11px 14px; white-space: nowrap; font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--border-light);
+}
+td:first-child { padding-left: 20px; }
+.ticker { font-weight: 600; color: var(--text-primary); font-size: 14px; }
+.name { color: var(--text-secondary); font-size: 13px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+  border-radius: 6px; font-size: 13px; font-weight: 500; line-height: 1.3;
+}
+.badge-green { background: var(--green-bg); color: var(--green-text); }
+.badge-red { background: var(--red-bg); color: var(--red-text); }
+.badge-amber { background: var(--amber-bg); color: var(--amber-text); }
+.badge-gray { background: var(--gray-bg); color: var(--gray-text); }
+.badge-purple { background: var(--purple-bg); color: var(--purple-text); }
+.badge-neutral { background: transparent; color: var(--text-primary); }
+.check { color: var(--green); font-size: 13px; }
+.warn { color: var(--amber); font-size: 13px; }
+.portfolio-row { border-left: 3px solid var(--blue-border) !important; }
+.portfolio-row td:first-child { padding-left: 17px; }
+.portfolio-indicator {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--blue); margin-left: 6px; vertical-align: middle;
+}
+.fmp-badge {
+  display: inline-flex; align-items: center; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; background: var(--purple-bg);
+  color: var(--purple-text); padding: 1px 5px; border-radius: 4px; margin-left: 4px;
+  vertical-align: middle;
+}
+.notes-list { list-style: none; padding: 16px 20px; }
+.notes-list li {
+  padding: 10px 0; border-bottom: 1px solid var(--border-light);
+  font-size: 14px; color: var(--text-secondary); line-height: 1.6;
+}
+.notes-list li:last-child { border-bottom: none; }
+.notes-list .note-ticker { font-weight: 600; color: var(--text-primary); }
+.footer {
+  text-align: center; padding: 32px 24px 24px; font-size: 13px;
+  color: var(--text-tertiary); border-top: 1px solid var(--border-light); margin-top: 20px;
+}
+@media (max-width: 768px) {
+  .header { padding: 12px 16px 0; }
+  .header h1 { font-size: 22px; }
+  .main { padding: 16px; }
+  .section { margin-bottom: 14px; }
+  .section-header { padding: 14px 16px; }
+  .section-title { font-size: 15px; }
+  table { font-size: 13px; }
+  thead th { padding: 8px 10px; font-size: 11px; }
+  td { padding: 9px 10px; }
+  thead th:first-child, td:first-child { padding-left: 14px; }
+  .tab { padding: 8px 14px; font-size: 13px; }
+}
+::-webkit-scrollbar { height: 6px; width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-content">
+    <h1>📊 Portfolio Fundamentals</h1>
+    <div class="date">April 12, 2026 • 14 Holdings</div>
+    <div class="tabs">
+      <div class="tab active" data-tab="portfolio">Portfolio Overview</div>
+      <div class="tab" data-tab="benchmarks">Industry Benchmarks</div>
+      <div class="tab" data-tab="notes">Data Notes</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- PORTFOLIO OVERVIEW -->
+<div class="tab-content active" id="tab-portfolio">
+
+  <div class="section" id="sec-valuation">
+    <div class="section-header" onclick="toggleSection('sec-valuation')">
+      <div class="section-title">💰 Valuation</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Name</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th></tr></thead>
+        <tbody>
+          <tr><td class="ticker">UNH</td><td class="name">UnitedHealth Group Incorporated</td><td><span class="badge badge-green">15.11 ✅</span><span class="fmp-badge">FMP</span></td><td><span class="badge badge-neutral">15.66</span></td><td><span class="badge badge-green">0.62 ✅</span></td></tr>
+          <tr><td class="ticker">OXY</td><td class="name">Occidental Petroleum Corporatio</td><td><span class="badge badge-green">16.90 ✅</span></td><td><span class="badge badge-green">7.77 ✅</span></td><td><span class="badge badge-amber">2.66 ⚠️</span></td></tr>
+          <tr><td class="ticker">LI</td><td class="name">Li Auto Inc.</td><td><span class="badge badge-green">21.73 ✅</span></td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-amber">0.17 ⚠️</span></td></tr>
+          <tr><td class="ticker">XPEV</td><td class="name">XPeng Inc.</td><td><span class="badge badge-amber">24.38 ⚠️</span></td><td><span class="badge badge-gray">N/A (loss)</span></td><td><span class="badge badge-amber">0.22 ⚠️</span></td></tr>
+          <tr><td class="ticker">CRCL</td><td class="name">Circle Internet Group, Inc.</td><td><span class="badge badge-amber">38.70 ⚠️</span></td><td><span class="badge badge-gray">N/A (loss)</span></td><td><span class="badge badge-green">8.52 ✅</span></td></tr>
+          <tr><td class="ticker">AMZN</td><td class="name">Amazon.com, Inc.</td><td><span class="badge badge-green">25.38 ✅</span><span class="fmp-badge">FMP</span></td><td><span class="badge badge-green">17.94 ✅</span></td><td><span class="badge badge-green">3.58 ✅</span></td></tr>
+          <tr><td class="ticker">MU</td><td class="name">Micron Technology, Inc.</td><td><span class="badge badge-green">4.29 ✅</span></td><td><span class="badge badge-green">12.79 ✅</span></td><td><span class="badge badge-green">8.16 ✅</span></td></tr>
+          <tr><td class="ticker">COIN</td><td class="name">Coinbase Global, Inc.</td><td><span class="badge badge-green">31.61 ✅</span><span class="fmp-badge">FMP</span></td><td><span class="badge badge-amber">24.29 ⚠️</span></td><td><span class="badge badge-green">6.58 ✅</span></td></tr>
+          <tr><td class="ticker">JPM</td><td class="name">JP Morgan Chase &amp; Co.</td><td><span class="badge badge-green">13.26 ✅</span><span class="fmp-badge">FMP</span></td><td><span class="badge badge-gray">N/A (bank)</span></td><td><span class="badge badge-amber">4.97 ⚠️</span></td></tr>
+          <tr><td class="ticker">BLK</td><td class="name">BlackRock, Inc.</td><td><span class="badge badge-green">16.62 ✅</span></td><td><span class="badge badge-gray">N/A (bank)</span></td><td><span class="badge badge-green">6.42 ✅</span></td></tr>
+          <tr><td class="ticker">GOOG</td><td class="name">Alphabet Inc.</td><td><span class="badge badge-green">23.50 ✅</span></td><td><span class="badge badge-green">25.03 ✅</span></td><td><span class="badge badge-green">9.48 ✅</span></td></tr>
+          <tr><td class="ticker">PURR</td><td class="name">Hyperliquid Strategies Inc</td><td><span class="badge badge-neutral">2.46</span></td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A</span></td></tr>
+          <tr><td class="ticker">NBIS</td><td class="name">Nebius Group N.V.</td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-green">69.23 ✅</span></td></tr>
+          <tr><td class="ticker">CRWV</td><td class="name">CoreWeave, Inc.</td><td><span class="badge badge-gray">N/A (loss)</span></td><td><span class="badge badge-green">32.94 ✅</span></td><td><span class="badge badge-green">10.45 ✅</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-quality">
+    <div class="section-header" onclick="toggleSection('sec-quality')">
+      <div class="section-title">⭐ Quality</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Name</th><th>Net Margin</th><th>ROE</th><th>FCF Yield</th></tr></thead>
+        <tbody>
+          <tr><td class="ticker">UNH</td><td class="name">UnitedHealth Group Incorporated</td><td><span class="badge badge-green">+2.9% ✅</span></td><td><span class="badge badge-green">+12.5% ✅</span></td><td><span class="badge badge-green">+5.0% ✅</span></td></tr>
+          <tr><td class="ticker">OXY</td><td class="name">Occidental Petroleum Corporatio</td><td><span class="badge badge-green">+9.5% ✅</span></td><td><span class="badge badge-green">+5.9% ✅</span></td><td><span class="badge badge-green">+3.6%</span></td></tr>
+          <tr><td class="ticker">LI</td><td class="name">Li Auto Inc.</td><td><span class="badge badge-green">+1.0% ✅</span></td><td><span class="badge badge-green">+1.6% ✅</span></td><td><span class="badge badge-red">-57.6%</span></td></tr>
+          <tr><td class="ticker">XPEV</td><td class="name">XPeng Inc.</td><td><span class="badge badge-green">-1.5% ✅</span></td><td><span class="badge badge-green">-3.7% ✅</span></td><td><span class="badge badge-gray">N/A</span></td></tr>
+          <tr><td class="ticker">CRCL</td><td class="name">Circle Internet Group, Inc.</td><td><span class="badge badge-green">-2.5% ✅</span></td><td><span class="badge badge-green">-2.8% ✅</span></td><td><span class="badge badge-red">-0.4%</span></td></tr>
+          <tr><td class="ticker">AMZN</td><td class="name">Amazon.com, Inc.</td><td><span class="badge badge-green">+10.9% ✅</span></td><td><span class="badge badge-green">+22.3% ✅</span></td><td><span class="badge badge-green">+0.9% ✅</span></td></tr>
+          <tr><td class="ticker">MU</td><td class="name">Micron Technology, Inc.</td><td><span class="badge badge-green">+41.5% ✅</span></td><td><span class="badge badge-green">+39.8% ✅</span></td><td><span class="badge badge-green">+0.6%</span></td></tr>
+          <tr><td class="ticker">COIN</td><td class="name">Coinbase Global, Inc.</td><td><span class="badge badge-green">+17.6% ✅</span></td><td><span class="badge badge-green">+10.1% ✅</span></td><td><span class="badge badge-green">+2.9% ✅</span></td></tr>
+          <tr><td class="ticker">JPM</td><td class="name">JP Morgan Chase &amp; Co.</td><td><span class="badge badge-green">+33.9% ✅</span></td><td><span class="badge badge-green">+16.1% ✅</span></td><td><span class="badge badge-green">+11.2%</span></td></tr>
+          <tr><td class="ticker">BLK</td><td class="name">BlackRock, Inc.</td><td><span class="badge badge-green">+24.5% ✅</span></td><td><span class="badge badge-green">+10.7% ✅</span></td><td><span class="badge badge-green">+4.5%</span></td></tr>
+          <tr><td class="ticker">GOOG</td><td class="name">Alphabet Inc.</td><td><span class="badge badge-green">+32.8% ✅</span></td><td><span class="badge badge-green">+35.7% ✅</span></td><td><span class="badge badge-green">+1.0%</span></td></tr>
+          <tr><td class="ticker">PURR</td><td class="name">Hyperliquid Strategies Inc</td><td><span class="badge badge-neutral">+0.0%</span></td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A</span></td></tr>
+          <tr><td class="ticker">NBIS</td><td class="name">Nebius Group N.V.</td><td><span class="badge badge-green">+19.2% ✅</span></td><td><span class="badge badge-green">+0.7% ✅</span></td><td><span class="badge badge-red">-9.8%</span></td></tr>
+          <tr><td class="ticker">CRWV</td><td class="name">CoreWeave, Inc.</td><td><span class="badge badge-green">-22.7% ✅</span></td><td><span class="badge badge-green">-50.3% ✅</span></td><td><span class="badge badge-red">-8.6%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-growth">
+    <div class="section-header" onclick="toggleSection('sec-growth')">
+      <div class="section-title">📈 Growth</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Name</th><th>Rev YoY</th><th>Op Margin</th><th>EPS Fwd Growth</th></tr></thead>
+        <tbody>
+          <tr><td class="ticker">UNH</td><td class="name">UnitedHealth Group Incorporated</td><td><span class="badge badge-green">+11.8% ✅</span></td><td><span class="badge badge-neutral">+4.2%</span></td><td><span class="badge badge-amber">-99.9% ⚠️</span></td></tr>
+          <tr><td class="ticker">OXY</td><td class="name">Occidental Petroleum Corporatio</td><td><span class="badge badge-amber">-0.5% ⚠️</span></td><td><span class="badge badge-green">+18.7%</span></td><td><span class="badge badge-red">-10.2%</span></td></tr>
+          <tr><td class="ticker">LI</td><td class="name">Li Auto Inc.</td><td><span class="badge badge-green">-22.2% ✅</span></td><td><span class="badge badge-red">-0.5%</span></td><td><span class="badge badge-amber">-99.8% ⚠️</span></td></tr>
+          <tr><td class="ticker">XPEV</td><td class="name">XPeng Inc.</td><td><span class="badge badge-amber">+87.7% ⚠️</span></td><td><span class="badge badge-red">-3.6%</span></td><td><span class="badge badge-green">+741.1%</span></td></tr>
+          <tr><td class="ticker">CRCL</td><td class="name">Circle Internet Group, Inc.</td><td><span class="badge badge-green">+63.9% ✅</span></td><td><span class="badge badge-red">-3.5%</span></td><td><span class="badge badge-amber">+880.2% ⚠️</span></td></tr>
+          <tr><td class="ticker">AMZN</td><td class="name">Amazon.com, Inc.</td><td><span class="badge badge-green">+12.4% ✅</span></td><td><span class="badge badge-green">+11.2%</span></td><td><span class="badge badge-amber">+5.0% ⚠️</span></td></tr>
+          <tr><td class="ticker">MU</td><td class="name">Micron Technology, Inc.</td><td><span class="badge badge-amber">+85.5% ⚠️</span></td><td><span class="badge badge-green">+48.3%</span></td><td><span class="badge badge-amber">+756.0% ⚠️</span></td></tr>
+          <tr><td class="ticker">COIN</td><td class="name">Coinbase Global, Inc.</td><td><span class="badge badge-amber">+9.4% ⚠️</span></td><td><span class="badge badge-green">+20.0%</span></td><td><span class="badge badge-green">+86.8%</span></td></tr>
+          <tr><td class="ticker">JPM</td><td class="name">JP Morgan Chase &amp; Co.</td><td><span class="badge badge-green">+0.8% ✅</span></td><td><span class="badge badge-gray">N/A (bank)</span></td><td><span class="badge badge-amber">-3.6% ⚠️</span></td></tr>
+          <tr><td class="ticker">BLK</td><td class="name">BlackRock, Inc.</td><td><span class="badge badge-green">+18.7% ✅</span></td><td><span class="badge badge-gray">N/A (bank)</span></td><td><span class="badge badge-amber">-31.7% ⚠️</span></td></tr>
+          <tr><td class="ticker">GOOG</td><td class="name">Alphabet Inc.</td><td><span class="badge badge-green">+15.1% ✅</span></td><td><span class="badge badge-green">+32.0%</span></td><td><span class="badge badge-amber">+31.1% ⚠️</span></td></tr>
+          <tr><td class="ticker">PURR</td><td class="name">Hyperliquid Strategies Inc</td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A</span></td></tr>
+          <tr><td class="ticker">NBIS</td><td class="name">Nebius Group N.V.</td><td><span class="badge badge-amber">+350.9% ⚠️</span></td><td><span class="badge badge-red">-112.5%</span></td><td><span class="badge badge-green">+8.1%</span></td></tr>
+          <tr><td class="ticker">CRWV</td><td class="name">CoreWeave, Inc.</td><td><span class="badge badge-amber">+167.9% ⚠️</span></td><td><span class="badge badge-red">-0.9%</span></td><td><span class="badge badge-green">+77.0%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-balance">
+    <div class="section-header" onclick="toggleSection('sec-balance')">
+      <div class="section-title">🏦 Balance Sheet</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <div style="padding:10px 20px 6px;font-size:13px;color:var(--text-tertiary);font-style:italic;">
+        ℹ️ From Stock Analysis SEC filings. Cash &amp; debt in $M.
+      </div>
+      <table>
+        <thead><tr><th>Ticker</th><th>Name</th><th>Cash ($M)</th><th>LT Debt ($M)</th><th>Net Debt ($M)</th><th>ND / EBITDA</th></tr></thead>
+        <tbody>
+          <tr><td class="ticker">UNH</td><td class="name">UnitedHealth Group Incorporated</td><td>$24,365</td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-amber">$54,024 net debt</span></td><td><span class="badge badge-green">2.32 ✅</span></td></tr>
+          <tr><td class="ticker">OXY</td><td class="name">Occidental Petroleum Corporatio</td><td>$1,968</td><td>$20,623</td><td><span class="badge badge-amber">$20,428 net debt</span></td><td><span class="badge badge-green">1.75 ✅</span></td></tr>
+          <tr><td class="ticker">LI</td><td class="name">Li Auto Inc.</td><td>$101,023</td><td>$3,299</td><td><span class="badge badge-green">Net Cash $83,208</span></td><td><span class="badge badge-gray">N/A (neg EBITDA)</span></td></tr>
+          <tr><td class="ticker">XPEV</td><td class="name">XPeng Inc.</td><td>$31,936</td><td>$6,589</td><td><span class="badge badge-green">Net Cash $13,738</span></td><td><span class="badge badge-gray">N/A (neg EBITDA)</span></td></tr>
+          <tr><td class="ticker">CRCL</td><td class="name">Circle Internet Group, Inc.</td><td>$1,526</td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-green">Net Cash $1,489</span></td><td><span class="badge badge-gray">N/A (neg EBITDA)</span></td></tr>
+          <tr><td class="ticker">AMZN</td><td class="name">Amazon.com, Inc.</td><td>$123,029</td><td>$65,648</td><td><span class="badge badge-amber">$29,958 net debt</span></td><td><span class="badge badge-amber">0.21 ⚠️</span></td></tr>
+          <tr><td class="ticker">MU</td><td class="name">Micron Technology, Inc.</td><td>$14,589</td><td>$9,557</td><td><span class="badge badge-green">Net Cash $3,791</span></td><td><span class="badge badge-gray">N/A(neg)</span></td></tr>
+          <tr><td class="ticker">COIN</td><td class="name">Coinbase Global, Inc.</td><td>$11,595</td><td>$5,937</td><td><span class="badge badge-green">Net Cash $3,936</span></td><td><span class="badge badge-gray">N/A(neg)</span></td></tr>
+          <tr><td class="ticker">JPM</td><td class="name">JP Morgan Chase &amp; Co.</td><td>$343,338</td><td>$435,206</td><td><span class="badge badge-amber">$91,868 net debt</span></td><td><span class="badge badge-gray">N/A (bank)</span></td></tr>
+          <tr><td class="ticker">BLK</td><td class="name">BlackRock, Inc.</td><td>$11,468</td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-amber">$16,296 net debt</span></td><td><span class="badge badge-gray">N/A (bank)</span></td></tr>
+          <tr><td class="ticker">GOOG</td><td class="name">Alphabet Inc.</td><td>$126,843</td><td>$46,547</td><td><span class="badge badge-green">Net Cash $67,552</span></td><td><span class="badge badge-gray">N/A(neg)</span></td></tr>
+          <tr><td class="ticker">PURR</td><td class="name">Hyperliquid Strategies Inc</td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-gray">N/A (limited)</span></td></tr>
+          <tr><td class="ticker">NBIS</td><td class="name">Nebius Group N.V.</td><td>$3,678</td><td>$4,103</td><td><span class="badge badge-amber">$1,210 net debt</span></td><td><span class="badge badge-gray">N/A (neg EBITDA)</span></td></tr>
+          <tr><td class="ticker">CRWV</td><td class="name">CoreWeave, Inc.</td><td>$3,161</td><td>$14,665</td><td><span class="badge badge-amber">$26,661 net debt</span></td><td><span class="badge badge-red">11.07 ⚠️</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- INDUSTRY BENCHMARKS -->
+<div class="tab-content" id="tab-benchmarks">
+
+  <div class="section" id="sec-bm-0">
+    <div class="section-header" onclick="toggleSection('sec-bm-0')">
+      <div class="section-title">🏥 Health Insurance</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">UNH <span class="portfolio-indicator"></span></td><td>15.11</td><td>15.66</td><td>0.62</td><td><span class="badge badge-green">+11.8%</span></td><td><span class="badge badge-green">+2.9%</span></td></tr>
+          <tr><td class="ticker">ELV</td><td>10.60</td><td>7.25</td><td>0.35</td><td><span class="badge badge-green">+12.8%</span></td><td><span class="badge badge-green">+2.9%</span></td></tr>
+          <tr><td class="ticker">CI</td><td>8.11</td><td>7.83</td><td>0.26</td><td><span class="badge badge-green">+11.2%</span></td><td><span class="badge badge-green">+2.3%</span></td></tr>
+          <tr><td class="ticker">HUM</td><td>12.61</td><td>4.66</td><td>0.18</td><td><span class="badge badge-green">+10.1%</span></td><td><span class="badge badge-green">+0.9%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-1">
+    <div class="section-header" onclick="toggleSection('sec-bm-1')">
+      <div class="section-title">🛢️  Oil &amp; Gas</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">OXY <span class="portfolio-indicator"></span></td><td>16.90</td><td>7.77</td><td>2.66</td><td><span class="badge badge-neutral">-0.5%</span></td><td><span class="badge badge-green">+9.5%</span></td></tr>
+          <tr><td class="ticker">CVX</td><td>17.90</td><td>11.22</td><td>2.03</td><td><span class="badge badge-neutral">-4.6%</span></td><td><span class="badge badge-green">+6.8%</span></td></tr>
+          <tr><td class="ticker">XOM</td><td>15.49</td><td>11.49</td><td>1.96</td><td><span class="badge badge-neutral">-4.5%</span></td><td><span class="badge badge-green">+9.2%</span></td></tr>
+          <tr><td class="ticker">COP</td><td>15.37</td><td>6.92</td><td>2.49</td><td><span class="badge badge-green">+7.7%</span></td><td><span class="badge badge-green">+13.6%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-2">
+    <div class="section-header" onclick="toggleSection('sec-bm-2')">
+      <div class="section-title">🚗 Chinese EVs</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">LI <span class="portfolio-indicator"></span></td><td>21.73</td><td>N/A</td><td>0.17</td><td><span class="badge badge-red">-22.2%</span></td><td><span class="badge badge-green">+1.0%</span></td></tr>
+          <tr class="portfolio-row"><td class="ticker">XPEV <span class="portfolio-indicator"></span></td><td>24.38</td><td><span class="badge badge-gray">N/A</span></td><td>0.22</td><td><span class="badge badge-green">+87.7%</span></td><td><span class="badge badge-red">-1.5%</span></td></tr>
+          <tr><td class="ticker">NIO</td><td>122.85</td><td><span class="badge badge-gray">N/A</span></td><td>0.19</td><td><span class="badge badge-green">+33.1%</span></td><td><span class="badge badge-red">-17.1%</span></td></tr>
+          <tr><td class="ticker">TSLA</td><td>127.69</td><td>121.95</td><td>13.81</td><td><span class="badge badge-neutral">-2.9%</span></td><td><span class="badge badge-green">+4.1%</span></td></tr>
+          <tr><td class="ticker">BYDDY</td><td>19.66</td><td>1.09</td><td>0.17</td><td><span class="badge badge-neutral">+3.5%</span></td><td><span class="badge badge-green">+4.0%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-3">
+    <div class="section-header" onclick="toggleSection('sec-bm-3')">
+      <div class="section-title">🔵 Crypto / Digital Assets</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">CRCL <span class="portfolio-indicator"></span></td><td>38.70</td><td><span class="badge badge-gray">N/A</span></td><td>8.52</td><td><span class="badge badge-green">+63.9%</span></td><td><span class="badge badge-red">-2.5%</span></td></tr>
+          <tr class="portfolio-row"><td class="ticker">COIN <span class="portfolio-indicator"></span></td><td>31.61</td><td>24.29</td><td>6.58</td><td><span class="badge badge-green">+9.4%</span></td><td><span class="badge badge-green">+17.6%</span></td></tr>
+          <tr class="portfolio-row"><td class="ticker">PURR <span class="portfolio-indicator"></span></td><td>2.46</td><td>N/A</td><td>N/A</td><td><span class="badge badge-gray">N/A</span></td><td><span class="badge badge-neutral">+0.0%</span></td></tr>
+          <tr><td class="ticker">HOOD</td><td>25.69</td><td>35.26</td><td>13.93</td><td><span class="badge badge-green">+51.6%</span></td><td><span class="badge badge-green">+42.1%</span></td></tr>
+          <tr><td class="ticker">MSTR</td><td>3.54</td><td><span class="badge badge-gray">N/A</span></td><td>93.47</td><td><span class="badge badge-neutral">+3.0%</span></td><td><span class="badge badge-red">-1509.5%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-4">
+    <div class="section-header" onclick="toggleSection('sec-bm-4')">
+      <div class="section-title">🛒 E-commerce / Big Tech</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">AMZN <span class="portfolio-indicator"></span></td><td>25.38</td><td>17.94</td><td>3.58</td><td><span class="badge badge-green">+12.4%</span></td><td><span class="badge badge-green">+10.9%</span></td></tr>
+          <tr><td class="ticker">MSFT</td><td>19.69</td><td>15.91</td><td>9.02</td><td><span class="badge badge-green">+16.7%</span></td><td><span class="badge badge-green">+39.0%</span></td></tr>
+          <tr><td class="ticker">META</td><td>17.62</td><td>15.67</td><td>7.93</td><td><span class="badge badge-green">+22.2%</span></td><td><span class="badge badge-green">+30.1%</span></td></tr>
+          <tr><td class="ticker">AAPL</td><td>27.97</td><td>25.16</td><td>8.79</td><td><span class="badge badge-green">+10.1%</span></td><td><span class="badge badge-green">+27.0%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-5">
+    <div class="section-header" onclick="toggleSection('sec-bm-5')">
+      <div class="section-title">💾 Semiconductors</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">MU <span class="portfolio-indicator"></span></td><td>4.29</td><td>12.79</td><td>8.16</td><td><span class="badge badge-green">+85.5%</span></td><td><span class="badge badge-green">+41.5%</span></td></tr>
+          <tr><td class="ticker">NVDA</td><td>16.97</td><td>34.02</td><td>21.23</td><td><span class="badge badge-green">+65.5%</span></td><td><span class="badge badge-green">+55.6%</span></td></tr>
+          <tr><td class="ticker">AMD</td><td>22.62</td><td>58.26</td><td>11.53</td><td><span class="badge badge-green">+34.3%</span></td><td><span class="badge badge-green">+12.3%</span></td></tr>
+          <tr><td class="ticker">INTC</td><td>61.35</td><td>26.39</td><td>5.93</td><td><span class="badge badge-neutral">-0.5%</span></td><td><span class="badge badge-green">+0.1%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-6">
+    <div class="section-header" onclick="toggleSection('sec-bm-6')">
+      <div class="section-title">🏦 Banks</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <div style="padding:10px 20px 6px;font-size:13px;color:var(--text-tertiary);font-style:italic;">ℹ️ Banks: P/B is primary valuation metric. EV/EBITDA not applicable.</div><table>
+        <thead><tr><th>Ticker</th><th>P/B</th><th>Fwd P/E</th><th>ROE</th><th>Rev YoY</th><th>Net Margin</th><th>Div Yield</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">JPM <span class="portfolio-indicator"></span></td><td><span class="badge badge-green">2.44</span></td><td>13.26</td><td><span class="badge badge-green">+16.1%</span></td><td><span class="badge badge-neutral">+0.8%</span></td><td><span class="badge badge-green">+33.9%</span></td><td>1.94%</td></tr>
+          <tr><td class="ticker">BAC</td><td><span class="badge badge-green">1.37</span></td><td>10.53</td><td><span class="badge badge-green">+10.2%</span></td><td><span class="badge badge-green">+7.4%</span></td><td><span class="badge badge-green">+28.4%</span></td><td>2.13%</td></tr>
+          <tr><td class="ticker">GS</td><td><span class="badge badge-green">2.55</span></td><td>13.92</td><td><span class="badge badge-green">+13.9%</span></td><td><span class="badge badge-green">+8.9%</span></td><td><span class="badge badge-green">+29.5%</span></td><td>1.98%</td></tr>
+          <tr><td class="ticker">WFC</td><td><span class="badge badge-green">1.61</span></td><td>10.76</td><td><span class="badge badge-green">+11.7%</span></td><td><span class="badge badge-neutral">+2.7%</span></td><td><span class="badge badge-green">+26.7%</span></td><td>2.11%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-7">
+    <div class="section-header" onclick="toggleSection('sec-bm-7')">
+      <div class="section-title">💼 Asset Management</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">BLK <span class="portfolio-indicator"></span></td><td>16.62</td><td>16.71</td><td>6.42</td><td><span class="badge badge-green">+18.7%</span></td><td><span class="badge badge-green">+24.5%</span></td></tr>
+          <tr><td class="ticker">SCHW</td><td>13.71</td><td>9.09</td><td>6.94</td><td><span class="badge badge-green">+22.0%</span></td><td><span class="badge badge-green">+37.0%</span></td></tr>
+          <tr><td class="ticker">STT</td><td>10.55</td><td>N/A</td><td>2.80</td><td><span class="badge badge-green">+7.3%</span></td><td><span class="badge badge-green">+21.1%</span></td></tr>
+          <tr><td class="ticker">BEN</td><td>8.56</td><td>9.45</td><td>1.47</td><td><span class="badge badge-neutral">+1.2%</span></td><td><span class="badge badge-green">+36.1%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-8">
+    <div class="section-header" onclick="toggleSection('sec-bm-8')">
+      <div class="section-title">🔍 Search / Big Tech</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">GOOG <span class="portfolio-indicator"></span></td><td>23.50</td><td>25.03</td><td>9.48</td><td><span class="badge badge-green">+15.1%</span></td><td><span class="badge badge-green">+32.8%</span></td></tr>
+          <tr><td class="ticker">META</td><td>17.62</td><td>15.67</td><td>7.93</td><td><span class="badge badge-green">+22.2%</span></td><td><span class="badge badge-green">+30.1%</span></td></tr>
+          <tr><td class="ticker">MSFT</td><td>19.69</td><td>15.91</td><td>9.02</td><td><span class="badge badge-green">+16.7%</span></td><td><span class="badge badge-green">+39.0%</span></td></tr>
+          <tr><td class="ticker">AAPL</td><td>27.97</td><td>25.16</td><td>8.79</td><td><span class="badge badge-green">+10.1%</span></td><td><span class="badge badge-green">+27.0%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec-bm-9">
+    <div class="section-header" onclick="toggleSection('sec-bm-9')">
+      <div class="section-title">🤖 AI Infrastructure</div>
+      <div class="section-toggle">▼</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Ticker</th><th>Fwd P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Rev YoY</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr class="portfolio-row"><td class="ticker">NBIS <span class="portfolio-indicator"></span></td><td>N/A</td><td>N/A</td><td>69.23</td><td><span class="badge badge-green">+350.9%</span></td><td><span class="badge badge-green">+19.2%</span></td></tr>
+          <tr class="portfolio-row"><td class="ticker">CRWV <span class="portfolio-indicator"></span></td><td><span class="badge badge-gray">N/A</span></td><td>32.94</td><td>10.45</td><td><span class="badge badge-green">+167.9%</span></td><td><span class="badge badge-red">-22.7%</span></td></tr>
+          <tr><td class="ticker">NVDA</td><td>16.97</td><td>34.02</td><td>21.23</td><td><span class="badge badge-green">+65.5%</span></td><td><span class="badge badge-green">+55.6%</span></td></tr>
+          <tr><td class="ticker">AMZN</td><td>25.38</td><td>17.94</td><td>3.58</td><td><span class="badge badge-green">+12.4%</span></td><td><span class="badge badge-green">+10.9%</span></td></tr>
+          <tr><td class="ticker">MSFT</td><td>19.69</td><td>15.91</td><td>9.02</td><td><span class="badge badge-green">+16.7%</span></td><td><span class="badge badge-green">+39.0%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- DATA NOTES -->
+<div class="tab-content" id="tab-notes">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📋 Data Quality Notes</div>
+    </div>
+    <div class="section-body">
+      <ul class="notes-list">
+        <li>Primary source: <strong>Stock Analysis</strong> (SEC filings). Cross-checked with yfinance, Finviz, FMP.</li>
+        <li>UNH eps_growth: sources diverge (yfinance=-99.9%, Finviz=+12.9%)</li>
+        <li>OXY rev_yoy: SA=-0.5% vs yfinance=+148.9% (Δ149.4pp) ⚠️</li>
+        <li>OXY ps: sources diverge (yfinance=2.66, Finviz=2.29)</li>
+        <li>LI ps: sources diverge (yfinance=0.17, Finviz=1.04)</li>
+        <li>LI eps_growth: sources diverge (yfinance=-99.8%, Finviz=+247.7%)</li>
+        <li>XPEV rev_yoy: SA=+87.7% vs yfinance=+38.2% (Δ49.5pp) ⚠️</li>
+        <li>XPEV fwd_pe: sources diverge (yfinance=24.38, Finviz=61.31)</li>
+        <li>XPEV ps: sources diverge (yfinance=0.22, Finviz=1.27)</li>
+        <li>CRCL fwd_pe: sources diverge (yfinance=38.70, Finviz=51.13)</li>
+        <li>CRCL eps_growth: sources diverge (yfinance=+880.2%, Finviz=+89.3%)</li>
+        <li>AMZN eps_growth: sources diverge (yfinance=+5.0%, Finviz=+21.5%)</li>
+        <li>AMZN net_debt_ebitda: SA=0.21 vs yfinance=0.38 (85% diff) ⚠️</li>
+        <li>AMZN net_debt_ebitda: SA=0.21 vs FMP=0.40 (95% diff) ⚠️</li>
+        <li>MU rev_yoy: SA=+85.5% vs yfinance=+196.3% (Δ110.8pp) ⚠️</li>
+        <li>MU eps_growth: sources diverge (yfinance=+756.0%, Finviz=+64.6%)</li>
+        <li>COIN rev_yoy: SA=+9.4% vs yfinance=-22.2% (Δ31.6pp) ⚠️</li>
+        <li>COIN ev_ebitda: sources diverge (yfinance=24.29, Finviz=37.03)</li>
+        <li>COIN net_debt_ebitda: SA=N/A(neg) vs FMP=N/A(neg) (21% diff) ⚠️</li>
+        <li>JPM ps: sources diverge (yfinance=4.97, Finviz=2.99)</li>
+        <li>JPM eps_growth: sources diverge (yfinance=-3.6%, Finviz=+8.0%)</li>
+        <li>BLK eps_growth: sources diverge (yfinance=-31.7%, Finviz=+15.5%)</li>
+        <li>GOOG eps_growth: sources diverge (yfinance=+31.1%, Finviz=+17.6%)</li>
+        <li>NBIS rev_yoy: SA=+350.9% vs yfinance=+500.8% (Δ149.9pp) ⚠️</li>
+        <li>CRWV rev_yoy: SA=+167.9% vs yfinance=+110.4% (Δ57.5pp) ⚠️</li>
+        <li>ELV eps_growth: sources diverge (yfinance=+36.3%, Finviz=+12.4%)</li>
+        <li>CI eps_growth: sources diverge (yfinance=-9.3%, Finviz=+10.3%)</li>
+        <li>HUM net_debt_ebitda: SA=2.40 vs yfinance=N/A(neg) (177% diff) ⚠️</li>
+        <li>CVX eps_growth: sources diverge (yfinance=-23.8%, Finviz=-1.8%)</li>
+        <li>XOM eps_growth: sources diverge (yfinance=-11.0%, Finviz=+4.7%)</li>
+        <li>XOM net_debt_ebitda: SA=0.55 vs yfinance=0.67 (21% diff) ⚠️</li>
+        <li>COP eps_growth: sources diverge (yfinance=-39.0%, Finviz=+0.1%)</li>
+        <li>NIO rev_yoy: SA=+33.1% vs yfinance=+75.9% (Δ42.8pp) ⚠️</li>
+        <li>NIO ps: sources diverge (yfinance=0.19, Finviz=1.12)</li>
+        <li>NIO roe: yfinance=-118.7% vs Finviz=-304.7% (Δ185.9pp) ⚠️</li>
+        <li>TSLA eps_growth: sources diverge (yfinance=-60.6%, Finviz=+33.3%)</li>
+        <li>BYDDY rev_yoy: SA=+3.5% vs yfinance=-13.5% (Δ17.0pp) ⚠️</li>
+        <li>HOOD rev_yoy: SA=+51.6% vs yfinance=+26.5% (Δ25.1pp) ⚠️</li>
+        <li>HOOD eps_growth: sources diverge (yfinance=-34.5%, Finviz=+26.6%)</li>
+        <li>MSTR net_margin: SA=-1509.5% vs yfinance=+0.0% (Δ1509.5pp) ⚠️</li>
+        <li>MSTR net_margin: SA=-1509.5% vs Finviz=-886.6% (Δ622.9pp) ⚠️</li>
+        <li>MSTR fwd_pe: sources diverge (yfinance=3.54, Finviz=162.47)</li>
+        <li>MSFT eps_growth: sources diverge (yfinance=+59.8%, Finviz=+15.0%)</li>
+        <li>MSFT net_debt_ebitda: SA=N/A(neg) vs yfinance=0.19 (212% diff) ⚠️</li>
+        <li>META eps_growth: sources diverge (yfinance=+10.7%, Finviz=+16.1%)</li>
+        <li>META net_debt_ebitda: SA=0.02 vs yfinance=0.03 (51% diff) ⚠️</li>
+        <li>AAPL eps_growth: sources diverge (yfinance=+18.3%, Finviz=+9.3%)</li>
+        <li>NVDA eps_growth: sources diverge (yfinance=+95.6%, Finviz=+33.6%)</li>
+        <li>AMD eps_growth: sources diverge (yfinance=+217.1%, Finviz=+61.8%)</li>
+        <li>INTC net_debt_ebitda: SA=0.97 vs yfinance=0.77 (21% diff) ⚠️</li>
+        <li>BAC ps: sources diverge (yfinance=3.51, Finviz=1.93)</li>
+        <li>BAC eps_growth: sources diverge (yfinance=+21.2%, Finviz=+14.9%)</li>
+        <li>GS net_margin: SA=+29.5% vs Finviz=+12.9% (Δ16.5pp) ⚠️</li>
+        <li>GS ps: sources diverge (yfinance=4.54, Finviz=2.12)</li>
+        <li>GS eps_growth: sources diverge (yfinance=+17.3%, Finviz=+11.9%)</li>
+        <li>WFC ps: sources diverge (yfinance=3.29, Finviz=2.12)</li>
+        <li>SCHW rev_yoy: SA=+22.0% vs Finviz=+6.5% (Δ15.6pp) ⚠️</li>
+        <li>SCHW eps_growth: sources diverge (yfinance=+41.1%, Finviz=+17.5%)</li>
+        <li>STT ps: sources diverge (yfinance=2.80, Finviz=1.80)</li>
+        <li>STT eps_growth: sources diverge (yfinance=-24.1%, Finviz=+11.0%)</li>
+        <li>BEN net_margin: SA=+36.1% vs yfinance=+7.0% (Δ29.1pp) ⚠️</li>
+        <li>BEN net_margin: SA=+36.1% vs Finviz=+6.3% (Δ29.8pp) ⚠️</li>
+        <li>BEN ev_ebitda: sources diverge (yfinance=9.45, Finviz=14.87)</li>
+        <li>BEN eps_growth: sources diverge (yfinance=+60.6%, Finviz=+10.5%)</li>
+        <li><span class="fmp-badge" style="font-size:11px">FMP</span> free tier covers: <span class="note-ticker">AMZN</span>, <span class="note-ticker">COIN</span>, <span class="note-ticker">JPM</span>, <span class="note-ticker">UNH</span> &mdash; 4 of 14 tickers.</li>
+        <li>🏦 <span class="note-ticker">Banks</span> &mdash; EV/EBITDA not applicable. P/B is primary valuation metric.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">🔖 Source Legend</div>
+    </div>
+    <div class="section-body">
+      <ul class="notes-list">
+        <li><span class="badge badge-green" style="font-size:12px">✅ Green</span> — Confirmed across sources or healthy range</li>
+        <li><span class="badge badge-amber" style="font-size:12px">⚠️ Amber</span> — Data quality concern or source divergence</li>
+        <li><span class="badge badge-gray" style="font-size:12px">N/A</span> — Not applicable or data unavailable</li>
+        <li><span class="fmp-badge">FMP</span> — Cross-verified with Financial Modeling Prep API</li>
+        <li><span class="portfolio-indicator" style="display:inline-block;vertical-align:middle;"></span> Blue dot / left border — Portfolio holding in benchmark tables</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="footer">
+  Data: Stock Analysis + yfinance + Finviz + FMP &nbsp;|&nbsp; April 12, 2026
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+if (window.innerWidth <= 768) {
+  document.querySelectorAll('#tab-benchmarks .section').forEach((s, i) => {
+    if (i > 0) s.classList.add('collapsed');
+  });
+}
+</script>
+</body>
+</html>
