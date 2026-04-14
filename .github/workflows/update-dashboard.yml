@@ -21,8 +21,45 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Generate dashboard
-        run: python3 scripts/generate_dashboard.py
+      - name: Generate and validate dashboard
+        run: |
+          for attempt in 1 2 3; do
+            echo "=== Attempt $attempt of 3 ==="
+            python3 scripts/generate_dashboard.py
+
+            # Validate all 8 sections have data
+            result=$(python3 -c "
+          html = open('apy_dashboard.html').read()
+          sections = {
+              'Fluid': 'Ethereum' in html and 'Arbitrum' in html,
+              'Morpho': 'Steakhouse' in html or 'Gauntlet' in html,
+              'Maple': 'Maple International' in html or 'Syrup' in html,
+              'Jupiter': 'JUPUSD' in html,
+              'Ethena': 'sUSDe' in html and 'No data' not in html.split('Ethena')[1].split('</section>')[0],
+              'Sky': 'sUSDS' in html and 'No data' not in html.split('Sky')[1].split('</section>')[0],
+              'HLP': 'Trading vault' in html,
+              'Falcon': 'sUSDf APY' in html,
+          }
+          failed = [k for k, v in sections.items() if not v]
+          if failed:
+              print(f'MISSING: {chr(44).join(failed)}')
+          else:
+              print('OK')
+          ")
+
+            if [ "$result" = "OK" ]; then
+              echo "✓ All 8 sections validated"
+              break
+            else
+              echo "✗ $result"
+              if [ "$attempt" -lt 3 ]; then
+                echo "Waiting 30s before retry..."
+                sleep 30
+              else
+                echo "All 3 attempts failed. Pushing best available data."
+              fi
+            fi
+          done
 
       - name: Commit and push
         run: |
