@@ -68,14 +68,28 @@ MAPLE_QUERY = """{
 
 # ── Data fetching ───────────────────────────────────────────────────────────
 
-def fetch_json(url, method="GET", data=None, headers=None):
+def fetch_json(url, method="GET", data=None, headers=None, retries=3):
     hdrs = {"Content-Type": "application/json", "User-Agent": "APY-Dashboard/1.0"}
     if headers:
         hdrs.update(headers)
     body = json.dumps(data).encode() if data else None
-    req = urllib.request.Request(url, data=body, headers=hdrs, method=method)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode())
+    last_err = None
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(url, data=body, headers=hdrs, method=method)
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read().decode()
+                if not raw.strip():
+                    raise ValueError("Empty response body")
+                return json.loads(raw)
+        except Exception as e:
+            last_err = e
+            if attempt < retries - 1:
+                import time
+                wait = 2 ** attempt
+                print(f"    Retry {attempt+1}/{retries-1} for {url.split('/')[2]} (waiting {wait}s): {e}")
+                time.sleep(wait)
+    raise last_err
 
 
 def fetch_defillama():
