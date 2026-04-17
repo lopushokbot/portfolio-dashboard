@@ -222,6 +222,20 @@ def process_ethena(data):
     return None
 
 
+def process_ethena_defillama(pools):
+    """Fallback: pull sUSDe APY from DefiLlama when Ethena API is Cloudflare-blocked."""
+    matches = sorted(
+        [p for p in pools if p.get("symbol") == "sUSDe"
+         and p.get("chain") == "Ethereum"
+         and (p.get("tvlUsd") or 0) > 1_000_000],
+        key=lambda p: p.get("tvlUsd") or 0, reverse=True,
+    )
+    if matches:
+        p = matches[0]
+        return {"apy": p.get("apy") or 0, "tvl": p.get("tvlUsd") or 0}
+    return None
+
+
 def process_sky(data):
     if not data or not isinstance(data, list) or len(data) == 0: return None
     main = data[0]
@@ -453,6 +467,10 @@ def main():
     maple = process_maple(results.get("maple") or [])
     jupiter = process_jupiter(pools)
     ethena = process_ethena(results.get("ethena") or {})
+    if ethena is None:
+        ethena = process_ethena_defillama(pools)
+        if ethena:
+            print("  ↳ Ethena: using DefiLlama fallback (Ethena API blocked)")
     sky = process_sky(results.get("sky"))
     hlp = process_hlp(results["hlp"]) if results.get("hlp") else None
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
