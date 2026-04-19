@@ -110,7 +110,11 @@ def fetch_maple():
 def fetch_ethena():
     print("  Fetching Ethena...")
     yields = fetch_json(ETHENA_YIELD_URL)
-    tvl_data = fetch_json(ETHENA_TVL_URL)
+    try:
+        tvl_data = fetch_json(ETHENA_TVL_URL)
+    except Exception as e:
+        print(f"    Ethena TVL fetch failed (non-critical): {e}")
+        tvl_data = {}
     return {"yields": yields, "tvl_data": tvl_data}
 
 
@@ -217,16 +221,17 @@ def process_ethena(data):
     tvl_data = data.get("tvl_data") or {}
     apy = yields.get("stakingYield", {}).get("value")
     tvl = tvl_data.get("totalBackingAssetsInUsd")
-    if apy is not None and tvl is not None:
-        return {"apy": float(apy), "tvl": float(tvl)}
+    if apy is not None:
+        return {"apy": float(apy), "tvl": float(tvl) if tvl is not None else None}
     return None
 
 
 def process_ethena_defillama(pools):
     """Fallback: pull sUSDe APY from DefiLlama when Ethena API is Cloudflare-blocked."""
     matches = sorted(
-        [p for p in pools if p.get("symbol") == "sUSDe"
-         and p.get("chain") == "Ethereum"
+        [p for p in pools
+         if (p.get("symbol") == "sUSDe" or p.get("project") == "ethena")
+         and p.get("chain", "").lower() == "ethereum"
          and (p.get("tvlUsd") or 0) > 1_000_000],
         key=lambda p: p.get("tvlUsd") or 0, reverse=True,
     )
