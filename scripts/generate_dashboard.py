@@ -109,9 +109,16 @@ def fetch_maple():
 
 def fetch_ethena():
     print("  Fetching Ethena...")
-    yields = fetch_json(ETHENA_YIELD_URL)
+    # Use a browser UA — Cloudflare on app.ethena.fi blocks the default bot UA
+    browser_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+    extra = {"User-Agent": browser_ua}
+    yields = fetch_json(ETHENA_YIELD_URL, headers=extra)
     try:
-        tvl_data = fetch_json(ETHENA_TVL_URL)
+        tvl_data = fetch_json(ETHENA_TVL_URL, headers=extra)
     except Exception as e:
         print(f"    Ethena TVL fetch failed (non-critical): {e}")
         tvl_data = {}
@@ -228,16 +235,27 @@ def process_ethena(data):
 
 def process_ethena_defillama(pools):
     """Fallback: pull sUSDe APY from DefiLlama when Ethena API is Cloudflare-blocked."""
+    # Be maximally permissive: match any project containing "ethena" OR symbol sUSDe/USDe,
+    # on any chain, with any TVL. Take the highest-TVL result (sUSDe has billions in TVL).
     matches = sorted(
         [p for p in pools
-         if (p.get("symbol") == "sUSDe" or p.get("project") == "ethena")
-         and p.get("chain", "").lower() == "ethereum"
-         and (p.get("tvlUsd") or 0) > 1_000_000],
+         if "ethena" in (p.get("project") or "").lower()
+         or p.get("symbol") in ("sUSDe", "USDe")],
         key=lambda p: p.get("tvlUsd") or 0, reverse=True,
     )
     if matches:
         p = matches[0]
-        return {"apy": p.get("apy") or 0, "tvl": p.get("tvlUsd") or 0}
+        apy = p.get("apy") or p.get("apyBase") or 0
+        print(f"    [Ethena DL fallback] Using: project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={apy}")
+        return {"apy": float(apy), "tvl": p.get("tvlUsd")}
+    # Debug: log near-matches so we can diagnose future failures from Actions logs
+    near = [p for p in pools if (
+        "usde" in (p.get("symbol") or "").lower()
+        or "ethena" in (p.get("project") or "").lower()
+    )]
+    print(f"    [Ethena DL fallback] No match found. {len(near)} near-match(es) in DefiLlama:")
+    for p in near[:5]:
+        print(f"      project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={p.get('apy')}")
     return None
 
 
