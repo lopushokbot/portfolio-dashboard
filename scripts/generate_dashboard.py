@@ -140,7 +140,13 @@ def fetch_hyperliquid():
 
 def fetch_falcon():
     print("  Fetching Falcon Finance...")
-    return fetch_json(FALCON_URL)
+    # Use a browser UA — Cloudflare on api.falcon.finance blocks the default bot UA
+    browser_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+    return fetch_json(FALCON_URL, headers={"User-Agent": browser_ua})
 
 
 # ── Data processing ─────────────────────────────────────────────────────────
