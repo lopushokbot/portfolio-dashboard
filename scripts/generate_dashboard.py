@@ -265,6 +265,29 @@ def process_ethena_defillama(pools):
     return None
 
 
+def process_falcon_defillama(pools):
+    """Fallback: pull sUSDf APY from DefiLlama when Falcon API is Cloudflare-blocked."""
+    matches = sorted(
+        [p for p in pools
+         if "falcon" in (p.get("project") or "").lower()
+         or p.get("symbol") in ("sUSDf", "USDf")],
+        key=lambda p: p.get("tvlUsd") or 0, reverse=True,
+    )
+    if matches:
+        p = matches[0]
+        apy = p.get("apy") or p.get("apyBase") or 0
+        print(f"    [Falcon DL fallback] Using: project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={apy}")
+        return {"apy": float(apy), "tvl": p.get("tvlUsd"), "staked": None}
+    near = [p for p in pools if (
+        "usdf" in (p.get("symbol") or "").lower()
+        or "falcon" in (p.get("project") or "").lower()
+    )]
+    print(f"    [Falcon DL fallback] No match found. {len(near)} near-match(es) in DefiLlama:")
+    for p in near[:5]:
+        print(f"      project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={p.get('apy')}")
+    return None
+
+
 def process_sky(data):
     if not data or not isinstance(data, list) or len(data) == 0: return None
     main = data[0]
@@ -503,6 +526,10 @@ def main():
     sky = process_sky(results.get("sky"))
     hlp = process_hlp(results["hlp"]) if results.get("hlp") else None
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
+    if falcon is None:
+        falcon = process_falcon_defillama(pools)
+        if falcon:
+            print("  ↳ Falcon: using DefiLlama fallback (Falcon API blocked)")
 
     print(f"\nData summary:")
     print(f"  Fluid:   {len(fluid)} pools (DefiLlama)")
