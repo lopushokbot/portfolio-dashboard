@@ -113,7 +113,7 @@ def fetch_ethena():
     browser_ua = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
+        "Chrome/133.0.0.0 Safari/537.36"
     )
     extra = {"User-Agent": browser_ua}
     yields = fetch_json(ETHENA_YIELD_URL, headers=extra)
@@ -144,7 +144,7 @@ def fetch_falcon():
     browser_ua = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
+        "Chrome/133.0.0.0 Safari/537.36"
     )
     return fetch_json(FALCON_URL, headers={"User-Agent": browser_ua})
 
