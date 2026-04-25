@@ -192,7 +192,7 @@ def process_morpho(vaults):
         if asset not in ("USDC", "USDT"): continue
         net_apy = (v["state"]["netApy"] or 0) * 100
         tvl = v["state"]["totalAssetsUsd"] or 0
-        if net_apy < 3.5 or tvl < 15_000_000: continue
+        if net_apy < 3.5 or net_apy > 200 or tvl < 15_000_000: continue
         chain = v["chain"]["network"]
         results.append({"name": v["name"], "chain": chain[0].upper() + chain[1:] if chain else "",
                         "asset": asset, "apy": net_apy, "tvl": tvl})
