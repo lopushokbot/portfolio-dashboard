@@ -4,6 +4,7 @@
 Data sources:
   - Fluid Lending:    DefiLlama yields API (captures Merkle reward APY that Fluid API misses)
   - Jupiter Lend:     DefiLlama yields API
+  - Aave V3:          Aave GraphQL API (api.v3.aave.com, USDC/USDT/EURC across all chains, APY >= 4%)
   - Morpho:           Morpho Blue GraphQL API (blue-api.morpho.org)
   - Maple Finance:    Maple GraphQL API (api.maple.finance)
   - Ethena (sUSDe):   Ethena REST API (app.ethena.fi)
@@ -28,6 +29,24 @@ ETHENA_TVL_URL = "https://app.ethena.fi/api/collateralization/status"
 SKY_URL = "https://info-sky.blockanalitica.com/api/v1/overall/"
 HYPERLIQUID_URL = "https://api.hyperliquid.xyz/info"
 FALCON_URL = "https://api.falcon.finance/api/v1/statistics"
+AAVE_GQL_URL = "https://api.v3.aave.com/graphql"
+
+# Aave V3 supported mainnet chain IDs (from chains(filter: MAINNET_ONLY))
+AAVE_CHAIN_IDS = [1, 42161, 8453, 43114, 137, 10, 59144, 5000, 56, 100, 324, 534352, 1088, 42220, 1868, 146, 9745, 57073, 196]
+
+AAVE_QUERY = """query AaveMarkets($chainIds: [ChainId!]!) {
+  markets(request: { chainIds: $chainIds }) {
+    name
+    chain { name }
+    reserves {
+      underlyingToken { symbol }
+      size { usd }
+      supplyInfo { apy { value } }
+      isFrozen
+      isPaused
+    }
+  }
+}"""
 
 FLUID_POOLS = [
     ("fluid-lending", "Ethereum", ["USDC", "USDT"]),
@@ -37,6 +56,10 @@ FLUID_POOLS = [
 ]
 
 JUPITER_STABLES = ["USDC", "JUPUSD", "USDT", "USDS", "EURC"]
+
+AAVE_STABLES = ("USDC", "USDT", "EURC")
+AAVE_MIN_APY_USD = 4.0  # USDC/USDT threshold; EURC always shown (rarer asset, any rate is informative)
+AAVE_MIN_TVL = 100_000  # skip dust pools where low utilization inflates the supply rate
 
 MORPHO_QUERY = """{
   vaults(
@@ -109,19 +132,8 @@ def fetch_maple():
 
 def fetch_ethena():
     print("  Fetching Ethena...")
-    # Use a browser UA — Cloudflare on app.ethena.fi blocks the default bot UA
-    browser_ua = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/133.0.0.0 Safari/537.36"
-    )
-    extra = {"User-Agent": browser_ua}
-    yields = fetch_json(ETHENA_YIELD_URL, headers=extra)
-    try:
-        tvl_data = fetch_json(ETHENA_TVL_URL, headers=extra)
-    except Exception as e:
-        print(f"    Ethena TVL fetch failed (non-critical): {e}")
-        tvl_data = {}
+    yields = fetch_json(ETHENA_YIELD_URL)
+    tvl_data = fetch_json(ETHENA_TVL_URL)
     return {"yields": yields, "tvl_data": tvl_data}
 
 
@@ -140,13 +152,15 @@ def fetch_hyperliquid():
 
 def fetch_falcon():
     print("  Fetching Falcon Finance...")
-    # Use a browser UA — Cloudflare on api.falcon.finance blocks the default bot UA
-    browser_ua = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/133.0.0.0 Safari/537.36"
-    )
-    return fetch_json(FALCON_URL, headers={"User-Agent": browser_ua})
+    return fetch_json(FALCON_URL)
+
+
+def fetch_aave():
+    print("  Fetching Aave V3 markets...")
+    return fetch_json(
+        AAVE_GQL_URL, method="POST",
+        data={"query": AAVE_QUERY, "variables": {"chainIds": AAVE_CHAIN_IDS}},
+    )["data"]["markets"]
 
 
 # ── Data processing ─────────────────────────────────────────────────────────
@@ -192,7 +206,7 @@ def process_morpho(vaults):
         if asset not in ("USDC", "USDT"): continue
         net_apy = (v["state"]["netApy"] or 0) * 100
         tvl = v["state"]["totalAssetsUsd"] or 0
-        if net_apy < 3.5 or net_apy > 200 or tvl < 15_000_000: continue
+        if net_apy < 3.5 or tvl < 15_000_000: continue
         chain = v["chain"]["network"]
         results.append({"name": v["name"], "chain": chain[0].upper() + chain[1:] if chain else "",
                         "asset": asset, "apy": net_apy, "tvl": tvl})
@@ -212,6 +226,34 @@ def process_maple(raw_pools):
         name = meta.get("poolName") or p.get("name", "")
         results.append({"name": name, "asset": sym, "apy": spot_apy, "tvl": tvl_usd})
     return sorted(results, key=lambda x: x["tvl"], reverse=True)
+
+
+def _aave_market_label(market_name, chain_name):
+    """Strip 'AaveV3<Chain>' prefix → '' for main market, or 'Lido'/'EtherFi' etc. for sub-markets."""
+    prefix = f"AaveV3{chain_name.replace(' ', '')}"
+    if market_name.startswith(prefix):
+        return market_name[len(prefix):]
+    return market_name
+
+
+def process_aave(markets):
+    rows = []
+    for m in markets or []:
+        chain = (m.get("chain") or {}).get("name") or ""
+        sub = _aave_market_label(m.get("name") or "", chain)
+        for r in m.get("reserves") or []:
+            if r.get("isFrozen") or r.get("isPaused"): continue
+            sym = (r.get("underlyingToken") or {}).get("symbol")
+            if sym not in AAVE_STABLES: continue
+            try:
+                apy = float(r["supplyInfo"]["apy"]["value"]) * 100
+                tvl = float(r["size"]["usd"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if tvl < AAVE_MIN_TVL: continue
+            if sym in ("USDC", "USDT") and apy < AAVE_MIN_APY_USD: continue
+            rows.append({"chain": chain, "market": sub, "asset": sym, "apy": apy, "tvl": tvl})
+    return sorted(rows, key=lambda r: r["apy"], reverse=True)
 
 
 def process_jupiter(pools):
@@ -234,57 +276,8 @@ def process_ethena(data):
     tvl_data = data.get("tvl_data") or {}
     apy = yields.get("stakingYield", {}).get("value")
     tvl = tvl_data.get("totalBackingAssetsInUsd")
-    if apy is not None:
-        return {"apy": float(apy), "tvl": float(tvl) if tvl is not None else None}
-    return None
-
-
-def process_ethena_defillama(pools):
-    """Fallback: pull sUSDe APY from DefiLlama when Ethena API is Cloudflare-blocked."""
-    # Be maximally permissive: match any project containing "ethena" OR symbol sUSDe/USDe,
-    # on any chain, with any TVL. Take the highest-TVL result (sUSDe has billions in TVL).
-    matches = sorted(
-        [p for p in pools
-         if "ethena" in (p.get("project") or "").lower()
-         or p.get("symbol") in ("sUSDe", "USDe")],
-        key=lambda p: p.get("tvlUsd") or 0, reverse=True,
-    )
-    if matches:
-        p = matches[0]
-        apy = p.get("apy") or p.get("apyBase") or 0
-        print(f"    [Ethena DL fallback] Using: project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={apy}")
-        return {"apy": float(apy), "tvl": p.get("tvlUsd")}
-    # Debug: log near-matches so we can diagnose future failures from Actions logs
-    near = [p for p in pools if (
-        "usde" in (p.get("symbol") or "").lower()
-        or "ethena" in (p.get("project") or "").lower()
-    )]
-    print(f"    [Ethena DL fallback] No match found. {len(near)} near-match(es) in DefiLlama:")
-    for p in near[:5]:
-        print(f"      project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={p.get('apy')}")
-    return None
-
-
-def process_falcon_defillama(pools):
-    """Fallback: pull sUSDf APY from DefiLlama when Falcon API is Cloudflare-blocked."""
-    matches = sorted(
-        [p for p in pools
-         if "falcon" in (p.get("project") or "").lower()
-         or p.get("symbol") in ("sUSDf", "USDf")],
-        key=lambda p: p.get("tvlUsd") or 0, reverse=True,
-    )
-    if matches:
-        p = matches[0]
-        apy = p.get("apy") or p.get("apyBase") or 0
-        print(f"    [Falcon DL fallback] Using: project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={apy}")
-        return {"apy": float(apy), "tvl": p.get("tvlUsd"), "staked": None}
-    near = [p for p in pools if (
-        "usdf" in (p.get("symbol") or "").lower()
-        or "falcon" in (p.get("project") or "").lower()
-    )]
-    print(f"    [Falcon DL fallback] No match found. {len(near)} near-match(es) in DefiLlama:")
-    for p in near[:5]:
-        print(f"      project={p.get('project')} symbol={p.get('symbol')} chain={p.get('chain')} tvl={p.get('tvlUsd')} apy={p.get('apy')}")
+    if apy is not None and tvl is not None:
+        return {"apy": float(apy), "tvl": float(tvl)}
     return None
 
 
@@ -333,7 +326,7 @@ def make_table(headers, rows):
             + "".join(table_row(r) for r in rows) + "</tbody></table>")
 
 
-def generate_html(fluid, morpho, maple, jupiter, ethena, sky, hlp, falcon, timestamp):
+def generate_html(fluid, morpho, maple, jupiter, aave, ethena, sky, hlp, falcon, timestamp):
     def tbl_rows(data, cols):
         return [[{"v": fmt_apy(r[c]), "cls": apy_class(r[c])} if c == "apy" else
                  {"v": fmt_tvl(r[c]), "cls": "tvl"} if c == "tvl" else r[c]
@@ -352,6 +345,14 @@ def generate_html(fluid, morpho, maple, jupiter, ethena, sky, hlp, falcon, times
     maple_html = make_table(["Pool", "Asset", "APY", "TVL"], maple_rows) if maple_rows else '<p class="error-msg">No data</p>'
 
     jupiter_html = make_table(["Asset", "APY", "TVL"], tbl_rows(jupiter, ["asset","apy","tvl"])) if jupiter else '<p class="error-msg">No data</p>'
+
+    aave_rows = [[
+        f'{r["chain"]}' + (f' <span class="chain-tag">{r["market"]}</span>' if r["market"] else ''),
+        r["asset"],
+        {"v": fmt_apy(r["apy"]), "cls": apy_class(r["apy"])},
+        {"v": fmt_tvl(r["tvl"]), "cls": "tvl"},
+    ] for r in aave]
+    aave_html = make_table(["Market", "Asset", "APY", "TVL"], aave_rows) if aave_rows else '<p class="error-msg">No reserves meet the &ge;4% threshold right now</p>'
 
     def inline(data, apy_key="apy", tvl_key="tvl"):
         if not data: return "No data"
@@ -465,6 +466,13 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
   <div class="table-wrap">{jupiter_html}</div>
 </section>
 
+<section class="card wide">
+  <span class="src">Aave API</span>
+  <h2><span class="icon">&#x1F47B;</span> Aave V3 &mdash; USDC / USDT / EURC</h2>
+  <div class="table-wrap">{aave_html}</div>
+  <p class="note">USDC &amp; USDT shown when APY &ge; 4%; EURC always shown. Pools under $100K supply hidden (low utilization inflates the rate).</p>
+</section>
+
 <section class="card">
   <span class="src">Ethena API</span>
   <h2><span class="icon">&#x1F311;</span> sUSDe (Ethena)</h2>
@@ -480,7 +488,7 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
 </div>
 <footer>
   <span>Last updated: {ts_display}</span>
-  <div class="legend">Sources: Protocol APIs (Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter)</div>
+  <div class="legend">Sources: Protocol APIs (Aave, Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter)</div>
 </footer>
 </div>
 </body>
@@ -503,6 +511,7 @@ def main():
             pool.submit(fetch_sky): "sky",
             pool.submit(fetch_hyperliquid): "hlp",
             pool.submit(fetch_falcon): "falcon",
+            pool.submit(fetch_aave): "aave",
         }
         for future in as_completed(futures):
             key = futures[future]
@@ -519,17 +528,10 @@ def main():
     maple = process_maple(results.get("maple") or [])
     jupiter = process_jupiter(pools)
     ethena = process_ethena(results.get("ethena") or {})
-    if ethena is None:
-        ethena = process_ethena_defillama(pools)
-        if ethena:
-            print("  ↳ Ethena: using DefiLlama fallback (Ethena API blocked)")
     sky = process_sky(results.get("sky"))
     hlp = process_hlp(results["hlp"]) if results.get("hlp") else None
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
-    if falcon is None:
-        falcon = process_falcon_defillama(pools)
-        if falcon:
-            print("  ↳ Falcon: using DefiLlama fallback (Falcon API blocked)")
+    aave = process_aave(results.get("aave"))
 
     print(f"\nData summary:")
     print(f"  Fluid:   {len(fluid)} pools (DefiLlama)")
@@ -540,8 +542,9 @@ def main():
     print(f"  Sky:     {'✓ ' + fmt_apy(sky['apy']) if sky else '✗'} (Sky API)")
     print(f"  HLP:     {'✓' if hlp else '✗'} (Hyperliquid API)")
     print(f"  Falcon:  {'✓ ' + fmt_apy(falcon['apy']) if falcon else '✗'} (Falcon API)")
+    print(f"  Aave:    {len(aave)} reserves shown (Aave API)")
 
-    html = generate_html(fluid, morpho, maple, jupiter, ethena, sky, hlp, falcon, timestamp)
+    html = generate_html(fluid, morpho, maple, jupiter, aave, ethena, sky, hlp, falcon, timestamp)
     with open("apy_dashboard.html", "w", encoding="utf-8") as f:
         f.write(html)
     print(f"\n✓ Dashboard written to apy_dashboard.html")

@@ -5,7 +5,7 @@
 ## Quick Reference
 | Task | Command / Steps |
 |------|----------------|
-| Generate dashboard locally | `cd /Users/iibot/Documents/ppppp/workspace/portfolio-dashboard && python scripts/generate_dashboard.py` |
+| Generate dashboard locally | `cd /Users/iibot/Documents/ppppp/workspace/apy-dashboard && python scripts/generate_dashboard.py` |
 | Deploy manually | Generate, then `git add apy_dashboard.html && git commit && git push` |
 | Check GitHub Action | `gh run list -R lopushokbot/portfolio-dashboard --limit 5` |
 | View live site | https://lopushokbot.github.io/portfolio-dashboard/apy_dashboard.html |
@@ -89,3 +89,4 @@
 | Date | Change |
 |------|--------|
 | 2026-04-14 | Initial dashboard with 8 protocols, GitHub Actions cron |
+| 2026-04-27 | Added Aave V3 card (USDC/USDT ≥ 4% APY, EURC always shown, ≥ $100K supply, all chains). Source: official Aave GraphQL API at `api.v3.aave.com/graphql` — not DefiLlama, gives fresher TVL. |

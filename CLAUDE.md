@@ -8,7 +8,7 @@ Auto-updating DeFi stablecoin yield comparison dashboard. Fetches APY data from 
 |-------------|-----|
 | Live | https://lopushokbot.github.io/portfolio-dashboard/apy_dashboard.html |
 | GitHub | https://github.com/lopushokbot/portfolio-dashboard |
-| Local path | `/Users/iibot/Documents/ppppp/workspace/portfolio-dashboard/` |
+| Local path | `/Users/iibot/Documents/ppppp/workspace/apy-dashboard/` |
 
 ## Tech Stack
 - Python 3 (stdlib only — `urllib`, `json`, `concurrent.futures`)
@@ -40,6 +40,7 @@ Single-file architecture: `generate_dashboard.py` does everything — fetch, par
 | Sky (sUSDS) | `info-sky.blockanalitica.com/api/v1/overall/` | GET | `sky_savings_rate_apy * 100` |
 | Falcon Finance | `api.falcon.finance/api/v1/statistics` | GET | `sUSDf_7d_apy * 100` |
 | Hyperliquid HLP | `api.hyperliquid.xyz/info` | POST | `vaultDetails` for HLP vault address |
+| Aave V3 | `api.v3.aave.com/graphql` | POST (GraphQL) | All chains; USDC/USDT shown when APY ≥ 4%, EURC always shown. Min $100K supplied. `supplyInfo.apy.value` is decimal (× 100 for %) |
 
 All APIs are public, no auth needed.
 
@@ -52,3 +53,4 @@ All APIs are public, no auth needed.
 - **Morpho API**: Occasional 504 Gateway Timeout — handled by retry logic
 - **Maple spotApy**: Raw value is scaled by 1e28 — must divide to get percentage
 - **DefiLlama**: Returns ALL pools, filtered client-side by project name and chain — response is large (~2MB)
+- **Aave API**: GraphQL endpoint at `api.v3.aave.com/graphql`. Each chain may have multiple markets (e.g., Ethereum has Main, Lido, EtherFi, Horizon — they appear as separate `markets[]` entries with `name` like `AaveV3EthereumLido`). The dashboard strips the `AaveV3<Chain>` prefix to label sub-markets. `supplyInfo.apy.value` is a decimal fraction — multiply by 100 for percentage.
