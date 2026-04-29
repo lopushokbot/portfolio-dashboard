@@ -132,8 +132,14 @@ def fetch_maple():
 
 def fetch_ethena():
     print("  Fetching Ethena...")
-    yields = fetch_json(ETHENA_YIELD_URL)
-    tvl_data = fetch_json(ETHENA_TVL_URL)
+    browser_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/133.0.0.0 Safari/537.36"
+    )
+    extra = {"User-Agent": browser_ua}
+    yields = fetch_json(ETHENA_YIELD_URL, headers=extra)
+    tvl_data = fetch_json(ETHENA_TVL_URL, headers=extra)
     return {"yields": yields, "tvl_data": tvl_data}
 
 
@@ -152,7 +158,12 @@ def fetch_hyperliquid():
 
 def fetch_falcon():
     print("  Fetching Falcon Finance...")
-    return fetch_json(FALCON_URL)
+    browser_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/133.0.0.0 Safari/537.36"
+    )
+    return fetch_json(FALCON_URL, headers={"User-Agent": browser_ua})
 
 
 def fetch_aave():
@@ -206,7 +217,7 @@ def process_morpho(vaults):
         if asset not in ("USDC", "USDT"): continue
         net_apy = (v["state"]["netApy"] or 0) * 100
         tvl = v["state"]["totalAssetsUsd"] or 0
-        if net_apy < 3.5 or tvl < 15_000_000: continue
+        if net_apy < 3.5 or net_apy > 200 or tvl < 15_000_000: continue
         chain = v["chain"]["network"]
         results.append({"name": v["name"], "chain": chain[0].upper() + chain[1:] if chain else "",
                         "asset": asset, "apy": net_apy, "tvl": tvl})
@@ -311,6 +322,40 @@ def process_falcon(data):
     staked_raw = data.get("usdf_staked")
     staked = float(str(staked_raw).replace(",", "")) if staked_raw else None
     return {"apy": apy, "tvl": tvl, "staked": staked}
+
+
+def process_ethena_defillama(pools):
+    """Fallback: pull sUSDe APY from DefiLlama when Ethena API is Cloudflare-blocked."""
+    matches = sorted(
+        [p for p in pools if (
+            "ethena" in (p.get("project") or "").lower()
+            or p.get("symbol") in ("sUSDe", "USDe")
+        ) and (p.get("tvlUsd") or 0) > 1_000_000],
+        key=lambda p: p.get("tvlUsd") or 0, reverse=True,
+    )
+    if matches:
+        p = matches[0]
+        apy = p.get("apy") or p.get("apyBase") or 0
+        print(f"    [Ethena DL fallback] Using: project={p.get('project')} symbol={p.get('symbol')} apy={apy}")
+        return {"apy": float(apy), "tvl": p.get("tvlUsd") or 0}
+    return None
+
+
+def process_falcon_defillama(pools):
+    """Fallback: pull sUSDf APY from DefiLlama when Falcon API is Cloudflare-blocked."""
+    matches = sorted(
+        [p for p in pools if (
+            "falcon" in (p.get("project") or "").lower()
+            or p.get("symbol") in ("sUSDf", "USDf")
+        )],
+        key=lambda p: p.get("tvlUsd") or 0, reverse=True,
+    )
+    if matches:
+        p = matches[0]
+        apy = p.get("apy") or p.get("apyBase") or 0
+        print(f"    [Falcon DL fallback] Using: project={p.get('project')} symbol={p.get('symbol')} apy={apy}")
+        return {"apy": float(apy), "tvl": p.get("tvlUsd"), "staked": None}
+    return None
 
 
 # ── HTML generation ─────────────────────────────────────────────────────────
@@ -532,6 +577,15 @@ def main():
     hlp = process_hlp(results["hlp"]) if results.get("hlp") else None
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
     aave = process_aave(results.get("aave"))
+
+    if ethena is None:
+        ethena = process_ethena_defillama(pools)
+        if ethena:
+            print("  ↳ Ethena: using DefiLlama fallback (Ethena API blocked)")
+    if falcon is None:
+        falcon = process_falcon_defillama(pools)
+        if falcon:
+            print("  ↳ Falcon: using DefiLlama fallback (Falcon API blocked)")
 
     print(f"\nData summary:")
     print(f"  Fluid:   {len(fluid)} pools (DefiLlama)")
