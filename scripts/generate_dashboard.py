@@ -19,7 +19,7 @@ import urllib.error
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# ── Config ──────────────────────────────────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────────────
 
 DEFILLAMA_URL = "https://yields.llama.fi/pools"
 MORPHO_GQL_URL = "https://blue-api.morpho.org/graphql"
@@ -89,7 +89,7 @@ MAPLE_QUERY = """{
 }"""
 
 
-# ── Data fetching ───────────────────────────────────────────────────────────
+# ── Data fetching ──────────────────────────────────────────────────────────────────────
 
 def fetch_json(url, method="GET", data=None, headers=None, retries=3):
     hdrs = {"Content-Type": "application/json", "User-Agent": "APY-Dashboard/1.0"}
@@ -158,12 +158,18 @@ def fetch_hyperliquid():
 
 def fetch_falcon():
     print("  Fetching Falcon Finance...")
-    browser_ua = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/133.0.0.0 Safari/537.36"
-    )
-    return fetch_json(FALCON_URL, headers={"User-Agent": browser_ua})
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/133.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://app.falcon.finance/",
+        "Origin": "https://app.falcon.finance",
+    }
+    return fetch_json(FALCON_URL, headers=headers)
 
 
 def fetch_aave():
@@ -174,7 +180,7 @@ def fetch_aave():
     )["data"]["markets"]
 
 
-# ── Data processing ─────────────────────────────────────────────────────────
+# ── Data processing ─────────────────────────────────────────────────────────────────────
 
 def fmt_apy(apy):
     if apy is None: return "—"
@@ -358,7 +364,7 @@ def process_falcon_defillama(pools):
     return None
 
 
-# ── HTML generation ─────────────────────────────────────────────────────────
+# ── HTML generation ─────────────────────────────────────────────────────────────────────
 
 def table_row(cells):
     return "<tr>" + "".join(
@@ -540,7 +546,7 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
 </html>"""
 
 
-# ── Main ────────────────────────────────────────────────────────────────────
+# ── Main ────────────────────────────────────────────────────────────────────────────
 
 def main():
     print("=== Stablecoin APY Dashboard Generator ===\n")
