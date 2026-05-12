@@ -5,6 +5,10 @@ on:
     # 9:00 AM Dubai time (UTC+4) = 5:00 AM UTC
     - cron: '0 5 * * *'
   workflow_dispatch:
+  push:
+    branches: [gh-pages]
+    paths:
+      - apy_dashboard.html
 
 permissions:
   contents: write
