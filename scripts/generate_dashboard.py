@@ -364,6 +364,27 @@ def process_falcon_defillama(pools):
     return None
 
 
+def process_morpho_defillama(pools):
+    """Fallback: pull Morpho vault APYs from DefiLlama when Morpho API is blocked."""
+    candidates = [
+        p for p in pools
+        if "morpho" in (p.get("project") or "").lower()
+        and p.get("symbol") in ("USDC", "USDT")
+        and (p.get("tvlUsd") or 0) >= 15_000_000
+        and 3.5 <= (p.get("apy") or 0) <= 200
+    ]
+    results = []
+    for p in sorted(candidates, key=lambda x: x.get("tvlUsd") or 0, reverse=True):
+        chain = p.get("chain") or ""
+        meta = p.get("poolMeta") or ""
+        name = meta if meta else f'{p.get("project", "Morpho")} {p.get("symbol", "")}'
+        apy = float(p.get("apy") or 0)
+        tvl = float(p.get("tvlUsd") or 0)
+        results.append({"name": name, "chain": chain, "asset": p.get("symbol", ""), "apy": apy, "tvl": tvl})
+        print(f"    [Morpho DL fallback] {name} ({chain}) | {p.get('symbol')} | APY={apy:.2f}% | TVL=${tvl/1e6:.1f}M")
+    return results
+
+
 # ── HTML generation ─────────────────────────────────────────────────────────────────────
 
 def table_row(cells):
@@ -584,6 +605,10 @@ def main():
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
     aave = process_aave(results.get("aave"))
 
+    if not morpho and pools:
+        morpho = process_morpho_defillama(pools)
+        if morpho:
+            print(f"  ↳ Morpho: using DefiLlama fallback ({len(morpho)} vaults, Morpho API blocked)")
     if ethena is None:
         ethena = process_ethena_defillama(pools)
         if ethena:
