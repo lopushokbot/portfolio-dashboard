@@ -122,7 +122,17 @@ def fetch_defillama():
 
 def fetch_morpho():
     print("  Fetching Morpho vaults...")
-    return fetch_json(MORPHO_GQL_URL, method="POST", data={"query": MORPHO_QUERY})["data"]["vaults"]["items"]
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/133.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+        "Origin": "https://app.morpho.org",
+        "Referer": "https://app.morpho.org/",
+    }
+    return fetch_json(MORPHO_GQL_URL, method="POST", data={"query": MORPHO_QUERY}, headers=headers)["data"]["vaults"]["items"]
 
 
 def fetch_maple():
@@ -366,19 +376,24 @@ def process_falcon_defillama(pools):
 
 def process_morpho_defillama(pools):
     """Fallback: pull Morpho vault APYs from DefiLlama when Morpho API is blocked."""
+    # DefiLlama sometimes records the total yield in apyBase rather than apy for Morpho vaults.
+    morpho_pools = [p for p in pools if "morpho" in (p.get("project") or "").lower()]
+    print(f"    [Morpho DL fallback] {len(morpho_pools)} pools with 'morpho' project found in DefiLlama")
+    for p in morpho_pools[:3]:
+        print(f"      sample: project={p.get('project')} symbol={p.get('symbol')} "
+              f"apy={p.get('apy')} apyBase={p.get('apyBase')} tvl={p.get('tvlUsd')}")
     candidates = [
-        p for p in pools
-        if "morpho" in (p.get("project") or "").lower()
-        and p.get("symbol") in ("USDC", "USDT")
+        p for p in morpho_pools
+        if p.get("symbol") in ("USDC", "USDT")
         and (p.get("tvlUsd") or 0) >= 15_000_000
-        and 3.5 <= (p.get("apy") or 0) <= 200
+        and 3.5 <= (p.get("apy") or p.get("apyBase") or 0) <= 200
     ]
     results = []
     for p in sorted(candidates, key=lambda x: x.get("tvlUsd") or 0, reverse=True):
         chain = p.get("chain") or ""
         meta = p.get("poolMeta") or ""
         name = meta if meta else f'{p.get("project", "Morpho")} {p.get("symbol", "")}'
-        apy = float(p.get("apy") or 0)
+        apy = float(p.get("apy") or p.get("apyBase") or 0)
         tvl = float(p.get("tvlUsd") or 0)
         results.append({"name": name, "chain": chain, "asset": p.get("symbol", ""), "apy": apy, "tvl": tvl})
         print(f"    [Morpho DL fallback] {name} ({chain}) | {p.get('symbol')} | APY={apy:.2f}% | TVL=${tvl/1e6:.1f}M")
