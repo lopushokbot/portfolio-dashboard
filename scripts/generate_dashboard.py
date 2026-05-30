@@ -375,28 +375,48 @@ def process_falcon_defillama(pools):
 
 
 def process_morpho_defillama(pools):
-    """Fallback: pull Morpho vault APYs from DefiLlama when Morpho API is blocked."""
-    # DefiLlama sometimes records the total yield in apyBase rather than apy for Morpho vaults.
+    """Fallback: pull Morpho vault APYs from DefiLlama when Morpho API is blocked.
+
+    DefiLlama vault symbols for Morpho are vault-token names (steakUSDC, gtuUSDC, etc.),
+    NOT the underlying asset symbol. Flexible substring matching is required.
+    """
     morpho_pools = [p for p in pools if "morpho" in (p.get("project") or "").lower()]
     print(f"    [Morpho DL fallback] {len(morpho_pools)} pools with 'morpho' project found in DefiLlama")
-    for p in morpho_pools[:3]:
+    for p in morpho_pools[:10]:
         print(f"      sample: project={p.get('project')} symbol={p.get('symbol')} "
               f"apy={p.get('apy')} apyBase={p.get('apyBase')} tvl={p.get('tvlUsd')}")
-    candidates = [
-        p for p in morpho_pools
-        if p.get("symbol") in ("USDC", "USDT")
-        and (p.get("tvlUsd") or 0) >= 15_000_000
-        and 3.5 <= (p.get("apy") or p.get("apyBase") or 0) <= 200
-    ]
-    results = []
-    for p in sorted(candidates, key=lambda x: x.get("tvlUsd") or 0, reverse=True):
-        chain = p.get("chain") or ""
-        meta = p.get("poolMeta") or ""
-        name = meta if meta else f'{p.get("project", "Morpho")} {p.get("symbol", "")}'
+
+    def underlying_stable(sym):
+        """Return 'USDT' or 'USDC' if the vault symbol represents a USD-stablecoin vault."""
+        s = (sym or "").upper()
+        if "USDT" in s:
+            return "USDT"
+        if "USDC" in s:
+            return "USDC"
+        return None
+
+    candidates = []
+    for p in morpho_pools:
+        asset = underlying_stable(p.get("symbol"))
+        if asset is None:
+            continue
+        if (p.get("tvlUsd") or 0) < 5_000_000:
+            continue
         apy = float(p.get("apy") or p.get("apyBase") or 0)
+        if not (3.5 <= apy <= 200):
+            continue
+        candidates.append((p, asset, apy))
+    print(f"    [Morpho DL fallback] {len(candidates)} candidates after symbol/tvl/apy filter")
+
+    results = []
+    for p, asset, apy in sorted(candidates, key=lambda x: x[0].get("tvlUsd") or 0, reverse=True):
+        chain = p.get("chain") or ""
+        sym = p.get("symbol", "")
+        meta = p.get("poolMeta") or ""
+        name = meta if meta else sym if sym else f'Morpho {asset}'
         tvl = float(p.get("tvlUsd") or 0)
-        results.append({"name": name, "chain": chain, "asset": p.get("symbol", ""), "apy": apy, "tvl": tvl})
-        print(f"    [Morpho DL fallback] {name} ({chain}) | {p.get('symbol')} | APY={apy:.2f}% | TVL=${tvl/1e6:.1f}M")
+        results.append({"name": name, "chain": chain, "asset": asset, "apy": apy, "tvl": tvl})
+        print(f"    [Morpho DL fallback] {name} ({chain}) | {asset} | APY={apy:.2f}% | TVL=${tvl/1e6:.1f}M")
     return results
 
 
@@ -424,7 +444,7 @@ def generate_html(fluid, morpho, maple, jupiter, aave, ethena, sky, hlp, falcon,
     morpho_rows = [[f'{r["name"]} <span class="chain-tag">{r["chain"]}</span>', r["asset"],
                     {"v": fmt_apy(r["apy"]), "cls": apy_class(r["apy"])},
                     {"v": fmt_tvl(r["tvl"]), "cls": "tvl"}] for r in morpho]
-    morpho_html = make_table(["Vault", "Asset", "Net APY", "TVL"], morpho_rows) if morpho_rows else '<p class="error-msg">No data</p>'
+    morpho_html = make_table(["Vault", "Asset", "Net APY", "TVL"], morpho_rows) if morpho_rows else '<p class="error-msg">No vaults &ge;3.5% APY right now &mdash; check <a href="https://app.morpho.org/earn" target="_blank" rel="noopener">app.morpho.org</a></p>'
 
     maple_rows = [[r["name"], r["asset"],
                    {"v": fmt_apy(r["apy"]), "cls": apy_class(r["apy"])},
