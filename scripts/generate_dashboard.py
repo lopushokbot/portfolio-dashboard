@@ -61,12 +61,19 @@ AAVE_STABLES = ("USDC", "USDT", "EURC")
 AAVE_MIN_APY_USD = 4.0  # USDC/USDT threshold; EURC always shown (rarer asset, any rate is informative)
 AAVE_MIN_TVL = 100_000  # skip dust pools where low utilization inflates the supply rate
 
+# Aave V4 (hub-and-spoke, launched on Ethereum mainnet 2026-03-30). Sourced from DefiLlama's
+# aave-v4 project — same /pools response we already fetch, no extra API call. Each spoke (core /
+# prime / plus) is a separate user-facing market with its own risk params and rate.
+AAVE_V4_PROJECT = "aave-v4"
+AAVE_V4_SYMBOL_MAP = {"USDC": "USDC", "USDT": "USDT", "EURC": "EURC", "EUROC": "EURC"}  # DefiLlama labels EURC as EUROC
+AAVE_V4_MIN_TVL = 25_000  # show all three assets regardless of APY (new market, tracking is the point); drop dust
+
 MORPHO_QUERY = """{
   vaults(
     first: 50
     orderBy: TotalAssetsUsd
     orderDirection: Desc
-    where: { whitelisted: true, totalAssetsUsd_gte: 15000000 }
+    where: { listed: true, totalAssetsUsd_gte: 15000000 }
   ) {
     items {
       name
@@ -283,6 +290,22 @@ def process_aave(markets):
     return sorted(rows, key=lambda r: r["apy"], reverse=True)
 
 
+def process_aave_v4(pools):
+    rows = []
+    for p in pools:
+        if p.get("project") != AAVE_V4_PROJECT: continue
+        sym = AAVE_V4_SYMBOL_MAP.get(p.get("symbol"))
+        if sym is None: continue
+        tvl = p.get("tvlUsd") or 0
+        if tvl < AAVE_V4_MIN_TVL: continue
+        spoke_raw = (p.get("poolMeta") or "").strip()
+        spoke = spoke_raw[:1].upper() + spoke_raw[1:] if spoke_raw else ""
+        chain = p.get("chain") or ""
+        rows.append({"chain": chain, "spoke": spoke, "asset": sym,
+                     "apy": p.get("apy") or 0, "tvl": tvl})
+    return sorted(rows, key=lambda r: r["apy"], reverse=True)
+
+
 def process_jupiter(pools):
     jup = sorted(
         [p for p in pools if p.get("project") == "jupiter-lend" and p.get("symbol") in JUPITER_STABLES],
@@ -433,7 +456,7 @@ def make_table(headers, rows):
             + "".join(table_row(r) for r in rows) + "</tbody></table>")
 
 
-def generate_html(fluid, morpho, maple, jupiter, aave, ethena, sky, hlp, falcon, timestamp):
+def generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, falcon, timestamp):
     def tbl_rows(data, cols):
         return [[{"v": fmt_apy(r[c]), "cls": apy_class(r[c])} if c == "apy" else
                  {"v": fmt_tvl(r[c]), "cls": "tvl"} if c == "tvl" else r[c]
@@ -460,6 +483,14 @@ def generate_html(fluid, morpho, maple, jupiter, aave, ethena, sky, hlp, falcon,
         {"v": fmt_tvl(r["tvl"]), "cls": "tvl"},
     ] for r in aave]
     aave_html = make_table(["Market", "Asset", "APY", "TVL"], aave_rows) if aave_rows else '<p class="error-msg">No reserves meet the &ge;4% threshold right now</p>'
+
+    aave_v4_rows = [[
+        f'{r["chain"]}' + (f' <span class="chain-tag">{r["spoke"]}</span>' if r["spoke"] else ''),
+        r["asset"],
+        {"v": fmt_apy(r["apy"]), "cls": apy_class(r["apy"])},
+        {"v": fmt_tvl(r["tvl"]), "cls": "tvl"},
+    ] for r in aave_v4]
+    aave_v4_html = make_table(["Market", "Asset", "APY", "TVL"], aave_v4_rows) if aave_v4_rows else '<p class="error-msg">No data</p>'
 
     def inline(data, apy_key="apy", tvl_key="tvl"):
         if not data: return "No data"
@@ -580,6 +611,13 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
   <p class="note">USDC &amp; USDT shown when APY &ge; 4%; EURC always shown. Pools under $100K supply hidden (low utilization inflates the rate).</p>
 </section>
 
+<section class="card wide">
+  <span class="src">DefiLlama</span>
+  <h2><span class="icon">&#x1F47B;</span> Aave V4 &mdash; USDC / USDT / EURC</h2>
+  <div class="table-wrap">{aave_v4_html}</div>
+  <p class="note">Hub-and-spoke markets (Core / Prime / Plus spokes) live on Ethereum since Mar 2026. All three stablecoins shown across spokes; pools under $25K hidden.</p>
+</section>
+
 <section class="card">
   <span class="src">Ethena API</span>
   <h2><span class="icon">&#x1F311;</span> sUSDe (Ethena)</h2>
@@ -595,7 +633,7 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
 </div>
 <footer>
   <span>Last updated: {ts_display}</span>
-  <div class="legend">Sources: Protocol APIs (Aave, Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter)</div>
+  <div class="legend">Sources: Protocol APIs (Aave V3, Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter, Aave V4)</div>
 </footer>
 </div>
 </body>
@@ -639,6 +677,7 @@ def main():
     hlp = process_hlp(results["hlp"]) if results.get("hlp") else None
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
     aave = process_aave(results.get("aave"))
+    aave_v4 = process_aave_v4(pools)
 
     if not morpho and pools:
         morpho = process_morpho_defillama(pools)
@@ -663,8 +702,9 @@ def main():
     print(f"  HLP:     {'✓' if hlp else '✗'} (Hyperliquid API)")
     print(f"  Falcon:  {'✓ ' + fmt_apy(falcon['apy']) if falcon else '✗'} (Falcon API)")
     print(f"  Aave:    {len(aave)} reserves shown (Aave API)")
+    print(f"  Aave V4: {len(aave_v4)} spokes shown (DefiLlama)")
 
-    html = generate_html(fluid, morpho, maple, jupiter, aave, ethena, sky, hlp, falcon, timestamp)
+    html = generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, falcon, timestamp)
     with open("apy_dashboard.html", "w", encoding="utf-8") as f:
         f.write(html)
     print(f"\n✓ Dashboard written to apy_dashboard.html")

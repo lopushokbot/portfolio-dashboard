@@ -29,14 +29,14 @@
    cd /Users/iibot/Documents/ppppp/workspace/portfolio-dashboard
    python scripts/generate_dashboard.py
    ```
-2. Script fetches all 8 APIs in parallel using ThreadPoolExecutor
+2. Script fetches all 8 APIs in parallel using ThreadPoolExecutor (Aave V4 adds no fetch — it reuses the DefiLlama /pools response, same as Fluid & Jupiter)
 3. Each API call has 3 retries with exponential backoff
-4. After generation, script validates all 8 sections have data — retries entire generation up to 3x if any section is missing
+4. The script prints a per-source data summary at the end — eyeball it for any source showing 0 / ✗
 5. Output: `apy_dashboard.html` in project root
 
 ### Validation
 - [ ] Open `apy_dashboard.html` in browser
-- [ ] All 8 protocol sections are visible and have data
+- [ ] All 10 protocol cards are visible and have data (Aave shown as both V3 and V4)
 - [ ] APY values look reasonable (most stablecoins 2-15%, HLP can be higher)
 - [ ] "Last updated" timestamp is current
 - [ ] No "N/A" or "Error" values (unless a protocol is genuinely down)
@@ -90,3 +90,4 @@
 |------|--------|
 | 2026-04-14 | Initial dashboard with 8 protocols, GitHub Actions cron |
 | 2026-04-27 | Added Aave V3 card (USDC/USDT ≥ 4% APY, EURC always shown, ≥ $100K supply, all chains). Source: official Aave GraphQL API at `api.v3.aave.com/graphql` — not DefiLlama, gives fresher TVL. |
+| 2026-06-05 | Added Aave V4 card (USDC/USDT/EURC across Core/Prime/Plus spokes, all shown, ≥ $25K, Ethereum-only at launch). Source: DefiLlama `aave-v4` project (no extra fetch — reuses existing /pools response). Also fixed Morpho query: filter field renamed `whitelisted` → `listed`. |
