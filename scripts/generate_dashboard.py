@@ -301,8 +301,9 @@ def process_aave_v4(pools):
         spoke_raw = (p.get("poolMeta") or "").strip()
         spoke = spoke_raw[:1].upper() + spoke_raw[1:] if spoke_raw else ""
         chain = p.get("chain") or ""
-        rows.append({"chain": chain, "spoke": spoke, "asset": sym,
-                     "apy": p.get("apy") or 0, "tvl": tvl})
+        apy = p.get("apy") or 0
+        if apy < 0.01: continue  # skip effectively-zero-yield entries (very low utilization)
+        rows.append({"chain": chain, "spoke": spoke, "asset": sym, "apy": apy, "tvl": tvl})
     return sorted(rows, key=lambda r: r["apy"], reverse=True)
 
 
