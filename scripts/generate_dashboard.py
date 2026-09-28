@@ -308,10 +308,19 @@ def process_aave_v4(pools):
 
 
 def process_jupiter(pools):
-    jup = sorted(
-        [p for p in pools if p.get("project") == "jupiter-lend" and p.get("symbol") in JUPITER_STABLES],
-        key=lambda p: p.get("tvlUsd") or 0, reverse=True,
-    )
+    # Match "jupiter-lend" exactly, or any "jupiter*" slug on Solana as a rebrand guard.
+    jup_pools = [
+        p for p in pools
+        if (p.get("project") == "jupiter-lend"
+            or "jupiter" in (p.get("project") or "").lower())
+        and p.get("chain") == "Solana"
+        and p.get("symbol") in JUPITER_STABLES
+    ]
+    if jup_pools:
+        slugs = {p["project"] for p in jup_pools}
+        if slugs != {"jupiter-lend"}:
+            print(f"    [Jupiter] project slug(s) in use: {slugs}")
+    jup = sorted(jup_pools, key=lambda p: p.get("tvlUsd") or 0, reverse=True)
     seen, deduped = set(), []
     for p in jup:
         if p["symbol"] not in seen:
