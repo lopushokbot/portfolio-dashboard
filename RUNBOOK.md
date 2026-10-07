@@ -48,6 +48,7 @@
 | Morpho shows N/A | 504 timeout | Re-run — usually transient |
 | Maple APY looks like 10^28 | Forgot to divide `spotApy` by 1e28 | Check the Maple parsing code |
 | DefiLlama returns empty | API down or rate-limited | Check https://defillama.com/docs/api — usually back within minutes |
+| Jupiter shows No data | Protocol renamed/delisted on DefiLlama | Check `[Jupiter] Top Solana projects` in GH Actions logs (added 2026-10-07 for diagnostic); update project slug in `process_jupiter()` |
 | GitHub Action failed | Check workflow logs | `gh run view -R lopushokbot/portfolio-dashboard --log-failed` |
 
 ---

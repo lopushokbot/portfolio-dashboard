@@ -320,6 +320,11 @@ def process_jupiter(pools):
         slugs = {p["project"] for p in jup_pools}
         if slugs != {"jupiter-lend"}:
             print(f"    [Jupiter] project slug(s) in use: {slugs}")
+    if not jup_pools:
+        # Diagnostic: log top Solana pools so we can spot a slug rename
+        solana_projects = sorted({p["project"] for p in pools if p.get("chain") == "Solana"
+                                   and (p.get("tvlUsd") or 0) > 5_000_000})
+        print(f"    [Jupiter] 0 pools found. Top Solana projects in DefiLlama: {solana_projects[:20]}")
     jup = sorted(jup_pools, key=lambda p: p.get("tvlUsd") or 0, reverse=True)
     seen, deduped = set(), []
     for p in jup:
