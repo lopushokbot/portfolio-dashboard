@@ -76,7 +76,16 @@ AAVE_EURC_KEEP_MIN_TVL = 100_000
 # prime / plus) is a separate user-facing market with its own risk params and rate.
 AAVE_V4_PROJECT = "aave-v4"
 AAVE_V4_SYMBOL_MAP = {"USDC": "USDC", "USDT": "USDT", "EURC": "EURC", "EUROC": "EURC"}  # DefiLlama labels EURC as EUROC
-AAVE_V4_MIN_TVL = 25_000  # show all three assets regardless of APY (new market, tracking is the point); drop dust
+AAVE_V4_MIN_TVL = 25_000  # dust floor for always-shown rows (EURC, held positions)
+# Card rule: pools with >= $10M supplied AND APY > 4% (incl. Merkl rewards). Always shown regardless:
+# EURC, and any pool where a tracked wallet has a supply position (from the My Positions fetch).
+AAVE_V4_STABLES = {"USDC": "USDC", "USDT": "USDT", "USDt": "USDT", "EURC": "EURC"}
+AAVE_V4_CARD_MIN_TVL = 10_000_000
+AAVE_V4_CARD_MIN_APY = 4.0
+AAVE_V4_RESERVES_QUERY = """query($c:[ChainId!]!){ reserves(request:{query:{chainIds:$c}}) {
+  canSupply spoke{ name chain{ name } } asset{ underlying{ info{ symbol } } }
+  summary{ supplyApy{ normalized } supplied{ exchange(currency:USD){ value } }
+    rewards{ __typename ... on MerklSupplyReward { extraApy{ normalized } } } } } }"""
 
 MORPHO_QUERY = """{
   vaults(
@@ -202,6 +211,11 @@ def fetch_falcon():
     return fetch_json(FALCON_URL, headers=headers)
 
 
+def fetch_aave_v4():
+    print("  Fetching Aave V4 reserves...")
+    return gql(AAVE_V4_GQL_URL, AAVE_V4_RESERVES_QUERY, {"c": _aave_v4_chain_ids()})["reserves"]
+
+
 def fetch_aave():
     print("  Fetching Aave V3 markets...")
     return fetch_json(
@@ -306,7 +320,37 @@ def process_aave(markets):
     return sorted(rows, key=lambda r: r["apy"], reverse=True)
 
 
+def _aave_v4_keep(sym, apy, tvl, held):
+    if held: return tvl >= 1
+    if sym == "EURC": return tvl >= AAVE_V4_MIN_TVL
+    return tvl >= AAVE_V4_CARD_MIN_TVL and apy > AAVE_V4_CARD_MIN_APY
+
+
+def process_aave_v4_official(reserves, held_keys):
+    """Official Aave V4 API reserves → card rows. held_keys = {(chain, spoke, symbol)} of tracked supplies."""
+    rows = []
+    for r in reserves or []:
+        if not r.get("canSupply"): continue
+        raw_sym = r["asset"]["underlying"]["info"]["symbol"]
+        chain, spoke = r["spoke"]["chain"]["name"], r["spoke"]["name"]
+        held = (chain, spoke, raw_sym) in held_keys
+        sym = AAVE_V4_STABLES.get(raw_sym, raw_sym if held else None)
+        if sym is None: continue
+        summ = r["summary"]
+        try:
+            apy = float(summ["supplyApy"]["normalized"]) + sum(
+                float(x["extraApy"]["normalized"]) for x in summ.get("rewards") or [] if x.get("extraApy"))
+            tvl = float(summ["supplied"]["exchange"]["value"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not _aave_v4_keep(sym, apy, tvl, held): continue
+        rows.append({"chain": chain, "spoke": spoke, "asset": sym, "apy": apy, "tvl": tvl, "held": held})
+    return sorted(rows, key=lambda r: r["apy"], reverse=True)
+
+
 def process_aave_v4(pools):
+    """Fallback when the official V4 API is down: DefiLlama aave-v4 pools, same thresholds (no held matching —
+    DefiLlama's spoke names differ from the official ones)."""
     rows = []
     for p in pools:
         if p.get("project") != AAVE_V4_PROJECT: continue
@@ -318,8 +362,8 @@ def process_aave_v4(pools):
         spoke = spoke_raw[:1].upper() + spoke_raw[1:] if spoke_raw else ""
         chain = p.get("chain") or ""
         apy = p.get("apy") or 0
-        if apy < 0.01: continue  # skip effectively-zero-yield entries (very low utilization)
-        rows.append({"chain": chain, "spoke": spoke, "asset": sym, "apy": apy, "tvl": tvl})
+        if not _aave_v4_keep(sym, apy, tvl, False): continue
+        rows.append({"chain": chain, "spoke": spoke, "asset": sym, "apy": apy, "tvl": tvl, "held": False})
     return sorted(rows, key=lambda r: r["apy"], reverse=True)
 
 
@@ -1267,7 +1311,7 @@ def positions_card(positions, n_wallets, failed):
 
 
 def generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, falcon, timestamp,
-                  positions=None, n_wallets=0, pos_failed=()):
+                  positions=None, n_wallets=0, pos_failed=(), aave_v4_src="Aave API"):
     def tbl_rows(data, cols):
         return [[{"v": fmt_apy(r[c]), "cls": apy_class(r[c])} if c == "apy" else
                  {"v": fmt_tvl(r[c]), "cls": "tvl"} if c == "tvl" else r[c]
@@ -1296,12 +1340,13 @@ def generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp
     aave_html = make_table(["Market", "Asset", "APY", "TVL"], aave_rows) if aave_rows else '<p class="error-msg">No reserves meet the &ge;4% / &ge;$50M threshold right now</p>'
 
     aave_v4_rows = [[
-        f'{r["chain"]}' + (f' <span class="chain-tag">{r["spoke"]}</span>' if r["spoke"] else ''),
+        f'{r["chain"]}' + (f' <span class="chain-tag">{r["spoke"]}</span>' if r["spoke"] else '')
+        + (' <span class="held-tag">Held</span>' if r.get("held") else ''),
         r["asset"],
         {"v": fmt_apy(r["apy"]), "cls": apy_class(r["apy"])},
         {"v": fmt_tvl(r["tvl"]), "cls": "tvl"},
     ] for r in aave_v4]
-    aave_v4_html = make_table(["Market", "Asset", "APY", "TVL"], aave_v4_rows) if aave_v4_rows else '<p class="error-msg">No data</p>'
+    aave_v4_html = make_table(["Market", "Asset", "APY", "TVL"], aave_v4_rows) if aave_v4_rows else '<p class="error-msg">No pools meet the &ge;$10M / &gt;4% threshold right now</p>'
 
     def inline(data, apy_key="apy", tvl_key="tvl"):
         if not data: return "No data"
@@ -1371,6 +1416,7 @@ tr:last-child td{{border-bottom:none}}
 .tile-value{{font-size:1.6rem;font-weight:600;letter-spacing:-.01em;margin-top:.15rem;font-variant-numeric:tabular-nums}}
 .tile-sub{{font-size:.75rem;color:var(--text-secondary);margin-top:.1rem}}
 .pos-table td.pos{{white-space:normal;width:100%}}
+.held-tag{{white-space:nowrap;font-size:.68rem;font-weight:600;color:var(--orange);border:1px solid var(--orange);padding:0 .35rem;border-radius:4px;margin-left:.2rem}}
 .pos-detail{{font-size:.74rem;color:var(--text-secondary);margin-top:.15rem}}
 th.num,td.num{{text-align:right;font-variant-numeric:tabular-nums}}
 .pos-table tbody tr.group-row:not(:first-child) td{{border-top:12px solid var(--card-bg)}}
@@ -1457,10 +1503,10 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
 </section>
 
 <section class="card wide">
-  <span class="src">DefiLlama</span>
-  <h2><span class="icon">&#x1F47B;</span> Aave V4 &mdash; USDC / USDT / EURC</h2>
+  <span class="src">{aave_v4_src}</span>
+  <h2><span class="icon">&#x1F47B;</span> Aave V4 &mdash; Stablecoins</h2>
   <div class="table-wrap">{aave_v4_html}</div>
-  <p class="note">Hub-and-spoke markets (Core / Prime / Plus spokes) live on Ethereum since Mar 2026. All three stablecoins shown across spokes; pools under $25K hidden.</p>
+  <p class="note">USDC &amp; USDT pools with &ge; $10M supplied and APY &gt; 4% (incl. Merkl rewards). EURC always shown. Pools marked <span class="held-tag">Held</span> are in My Positions and always shown.</p>
 </section>
 
 <section class="card">
@@ -1478,7 +1524,7 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
 </div>
 <footer>
   <span>Last updated: {ts_display}</span>
-  <div class="legend">Sources: Protocol APIs (Aave V3, Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter, Aave V4) &middot; My Positions: Aave V3/V4, Morpho, Maple, Fluid, Hyperliquid APIs + on-chain reads</div>
+  <div class="legend">Sources: Protocol APIs (Aave V3 &amp; V4, Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter) &middot; My Positions: Aave V3/V4, Morpho, Maple, Fluid, Hyperliquid APIs + on-chain reads</div>
 </footer>
 </div>
 </body>
@@ -1502,6 +1548,7 @@ def main():
             pool.submit(fetch_hyperliquid): "hlp",
             pool.submit(fetch_falcon): "falcon",
             pool.submit(fetch_aave): "aave",
+            pool.submit(fetch_aave_v4): "aave_v4",
         }
         for future in as_completed(futures):
             key = futures[future]
@@ -1522,7 +1569,6 @@ def main():
     hlp = process_hlp(results["hlp"]) if results.get("hlp") else None
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
     aave = process_aave(results.get("aave"))
-    aave_v4 = process_aave_v4(pools)
 
     if not morpho and pools:
         morpho = process_morpho_defillama(pools)
@@ -1545,6 +1591,15 @@ def main():
         pos_rows, pos_failed = fetch_positions(wallets, results.get("aave"), pools, apys, hlp)
         positions = merge_positions(pos_rows, len(wallets))
 
+    # Aave V4 card: official API (spoke names match My Positions); DefiLlama only as fallback
+    held_v4 = {(p["chain"], p["name"][:-len(" spoke")], p["asset"]) for p in positions
+               if p["protocol"] == "Aave V4" and p["name"].endswith(" spoke")}
+    aave_v4_src = "Aave API"
+    aave_v4 = process_aave_v4_official(results.get("aave_v4"), held_v4) if results.get("aave_v4") else []
+    if not aave_v4 and pools:
+        aave_v4, aave_v4_src = process_aave_v4(pools), "DefiLlama"
+        print("  ↳ Aave V4: using DefiLlama fallback")
+
     print(f"\nData summary:")
     print(f"  Fluid:   {len(fluid)} pools (DefiLlama)")
     print(f"  Morpho:  {len(morpho)} vaults (Morpho API)")
@@ -1555,14 +1610,14 @@ def main():
     print(f"  HLP:     {'✓' if hlp else '✗'} (Hyperliquid API)")
     print(f"  Falcon:  {'✓ ' + fmt_apy(falcon['apy']) if falcon else '✗'} (Falcon API)")
     print(f"  Aave:    {len(aave)} reserves shown (Aave API)")
-    print(f"  Aave V4: {len(aave_v4)} spokes shown (DefiLlama)")
+    print(f"  Aave V4: {len(aave_v4)} pools shown ({aave_v4_src})")
     if wallets:
         print(f"  My Positions: {len(positions)} positions" + (f" (unreachable: {', '.join(pos_failed)})" if pos_failed else ""))
     else:
         print("  My Positions: skipped (no APY_WALLETS env / wallets.local.json)")
 
     html = generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, falcon, timestamp,
-                         positions, len(wallets), pos_failed)
+                         positions, len(wallets), pos_failed, aave_v4_src)
     with open("apy_dashboard.html", "w", encoding="utf-8") as f:
         f.write(html)
     print(f"\n✓ Dashboard written to apy_dashboard.html")

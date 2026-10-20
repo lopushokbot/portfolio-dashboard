@@ -1,7 +1,7 @@
 # Stablecoin APY Dashboard
 
 ## Overview
-Auto-updating DeFi stablecoin yield comparison dashboard. Fetches APY data from 9 protocols (Aave shown as V3 + V4) via direct APIs, generates a static HTML page, deployed to GitHub Pages via daily GitHub Actions cron.
+Auto-updating DeFi stablecoin yield comparison dashboard. Fetches APY data from 9 protocols (Aave shown as V3 + V4) via direct APIs, plus a My Positions card for the tracked wallets, generates a static HTML page, deployed to GitHub Pages via daily GitHub Actions cron.
 
 ## Live URLs
 | Environment | URL |
@@ -41,7 +41,7 @@ Single-file architecture: `generate_dashboard.py` does everything — fetch, par
 | Falcon Finance | `api.falcon.finance/api/v1/statistics` | GET | `sUSDf_7d_apy * 100` |
 | Hyperliquid HLP | `api.hyperliquid.xyz/info` | POST | `vaultDetails` for HLP vault address |
 | Aave V3 | `api.v3.aave.com/graphql` | POST (GraphQL) | All chains; pools ≥ $50M supplied only (`AAVE_MIN_TVL`), USDC/USDT also need APY ≥ 4%. Exception: EURC on Ethereum + Base always shown (min $100K). `supplyInfo.apy.value` is decimal (× 100 for %) |
-| Aave V4 | `yields.llama.fi/pools` (DefiLlama) | GET | `project == aave-v4`. Hub-and-spoke (Core/Prime/Plus spokes via `poolMeta`). USDC/USDT/EURC, all spokes, min $25K. DefiLlama labels EURC as `EUROC`. `apy` already in %. Ethereum-only at launch |
+| Aave V4 | `api.v4.aave.com/graphql` (official; DefiLlama `aave-v4` as fallback) | POST (GraphQL) | `reserves(request:{query:{chainIds}})` across all mainnet V4 chains (`chains(MAINNET_ONLY)`). APY = `supplyApy` + Merkl `extraApy`. Card rule: USDC/USDT with ≥ $10M supplied AND APY > 4%; EURC always (≥ $25K); pools where My Positions has a supply always shown with a "Held" tag (matched on chain + official spoke name + symbol) |
 
 All APIs are public, no auth needed.
 
@@ -83,7 +83,6 @@ Top card: APYs of the tracked wallets' DeFi positions in one table — **positio
 - **Maple spotApy**: Raw value is scaled by 1e28 — must divide to get percentage
 - **DefiLlama**: Returns ALL pools, filtered client-side by project name and chain — response is large (~2MB)
 - **Aave V3 API**: GraphQL endpoint at `api.v3.aave.com/graphql`. Each chain may have multiple markets (e.g., Ethereum has Main, Lido, EtherFi, Horizon — they appear as separate `markets[]` entries with `name` like `AaveV3EthereumLido`). The dashboard strips the `AaveV3<Chain>` prefix to label sub-markets. `supplyInfo.apy.value` is a decimal fraction — multiply by 100 for percentage.
-- **Aave V4**: sourced from DefiLlama (`project == aave-v4`), NOT the official API. The official V4 GraphQL at `api.v4.aave.com/graphql` exists but uses a hub-and-spoke schema (`reserves`/`spokes`/`hubs` queries needing a `query` sub-object) with introspection disabled — not worth reverse-engineering when DefiLlama already exposes per-spoke pools cleanly. DefiLlama gives `poolMeta` = spoke name (core/prime/plus) and `apy` already as a percentage (do NOT × 100, unlike the V3 official API). DefiLlama labels EURC as `EUROC`. V4 is Ethereum-only at launch; new chains will appear automatically since the code filters by project, not chain.
-- **Aave V4 spoke names**: official API names spokes (Main, Maple SyrupUSDG, Coinbase Stocks…) differently from DefiLlama (Core/Prime/Plus/Global Dollar). The My Positions card uses the official API names.
+- **Aave V4 card source**: official API since 2026-10-20 (was DefiLlama). Official spoke names (Main, Forex, Bluechip, Maple SyrupUSDG, Coinbase Stocks…) differ from DefiLlama's (Core/Prime/Plus/Global Dollar) — that's why the card switched: "Held" matching needs the names My Positions uses. Request objects need a `query` sub-object; introspection is disabled — copy query shapes from the `@aave/graphql` npm package (`dist/index.js`). DefiLlama fallback can't mark Held rows. Main-spoke USDC/USDG rates include large Merkl campaigns that end/renew (dates in `rewards{ endDate }`).
 - **Responsive layout**: `.card{min-width:0}` is required or wide tables stretch grid cells past the phone viewport. Phone breakpoint `max-width:600px` (tighter padding, source labels hidden, first column wraps); 2-column grid from 640px (iPad).
 - **Morpho API schema drift**: the vault filter field was renamed `whitelisted` → `listed` (returns HTTP 400 `Field "whitelisted" is not defined` if you use the old name). Fixed 2026-06-05.
