@@ -35,15 +35,43 @@ Single-file architecture: `generate_dashboard.py` does everything — fetch, par
 | Fluid Lending | `yields.llama.fi/pools` (DefiLlama) | GET | Fluid's own API misses Merkle rewards on ETH/ARB/Base |
 | Jupiter Lend | `yields.llama.fi/pools` (DefiLlama) | GET | Stables: USDC, JUPUSD, USDT, USDS, EURC |
 | Morpho | `blue-api.morpho.org/graphql` | POST (GraphQL) | Vaults with TVL >= $15M, net APY >= 3.5% |
-| Maple Finance | `api.maple.finance/v2/graphql` | POST (GraphQL) | `spotApy / 1e28` = percentage |
+| Maple Finance | `api.maple.finance/v2/graphql` | POST (GraphQL) | `spotApy / 1e28` = percentage. Hidden by request (`MAPLE_EXCLUDE`): Institutional – Secured Lending, Receivables Financing |
 | Ethena (sUSDe) | `app.ethena.fi/api/yields/protocol-and-staking-yield` | GET | `stakingYield.value` = APY % |
 | Sky (sUSDS) | `info-sky.blockanalitica.com/api/v1/overall/` | GET | `sky_savings_rate_apy * 100` |
 | Falcon Finance | `api.falcon.finance/api/v1/statistics` | GET | `sUSDf_7d_apy * 100` |
 | Hyperliquid HLP | `api.hyperliquid.xyz/info` | POST | `vaultDetails` for HLP vault address |
-| Aave V3 | `api.v3.aave.com/graphql` | POST (GraphQL) | All chains; USDC/USDT shown when APY ≥ 4%, EURC always shown. Min $100K supplied. `supplyInfo.apy.value` is decimal (× 100 for %) |
+| Aave V3 | `api.v3.aave.com/graphql` | POST (GraphQL) | All chains; pools ≥ $50M supplied only (`AAVE_MIN_TVL`), USDC/USDT also need APY ≥ 4%. Exception: EURC on Ethereum + Base always shown (min $100K). `supplyInfo.apy.value` is decimal (× 100 for %) |
 | Aave V4 | `yields.llama.fi/pools` (DefiLlama) | GET | `project == aave-v4`. Hub-and-spoke (Core/Prime/Plus spokes via `poolMeta`). USDC/USDT/EURC, all spokes, min $25K. DefiLlama labels EURC as `EUROC`. `apy` already in %. Ethereum-only at launch |
 
 All APIs are public, no auth needed.
+
+## My Positions card (tracked wallets)
+Top card: APYs of the tracked wallets' DeFi positions in one table — **position name, asset, APY only** + two blended-APY tiles (stablecoin / overall). Rows are **grouped by protocol** (Aave V3 + V4 = one "Aave" group with a V3/V4 pill per row); groups ordered by blended APY, rows by APY; multi-position groups show their blended APY in the header.
+- **Privacy rules (owner's explicit request — never relax):**
+  - No balances anywhere: not on the page, not in Actions logs (public repo). USD sizes are used only to weight blended APYs, the <$50 dust filter and loan net-APY. Loan detail lines show rates only.
+  - No wallet identity anywhere: addresses live only in the `APY_WALLETS` Actions secret (comma-separated) / gitignored `wallets.local.json` (`["0x…","0x…"]`). The page never mentions wallets; `load_wallets()` emits `::add-mask::` for every address form so CI logs redact them. Don't name the owner in public files or commit messages.
+  - No wallets configured → card is skipped.
+- Positions are **discovered live** each run (new deposits appear, exits drop off; < $50 hidden). Dedicated fetchers:
+
+| Source | How | APY |
+|--------|-----|-----|
+| Aave V3 | `userSupplies`/`userBorrows` on `api.v3.aave.com` across all markets | API `apy.value` |
+| Aave V4 | `userSupplies`/`userBorrows` (`userChains`) on `api.v4.aave.com` | `supplyApy` + Merkl `extraApy`; borrow = `borrowApy` − Merkl `discountApy` |
+| Morpho | `userByAddress` (vaultV2Positions + vaultPositions), chains 1/8453/42161 | vault `netApy` (incl. rewards) |
+| Maple | `account(id).poolV2Positions` | pool `spotApy / 1e28` |
+| Fluid | `api.fluid.instadapp.io/v2/lending/{chain}/users/{addr}/positions` | DefiLlama (incl. Merkl), fallback Fluid `totalRate` |
+| sUSDf, sUSDe | on-chain ERC-4626 `balanceOf` → `convertToAssets` (publicnode RPC) | Falcon / Ethena APIs (same as their cards) |
+| Uniswap V3 LPs | on-chain NFT enumeration + `positions` + pool `slot0` on Eth/Arb/Base | DefiLlama pool 7d fee APR if in range, 0 if out of range |
+| Hyperliquid | `delegatorSummary`/`delegations` (HYPE staking), `userVaultEquities` (vaults) | validator `predictedApr` (month); HLP from vault APR |
+
+- **Auto-discovery of new protocols** (`discover_vaults()`, second pass): any **ERC-4626 vault token** a wallet holds that no fetcher above already reported (fetchers tag rows with their receipt-token address).
+  - Candidates — Ethereum: full token list from Routescan (`api.routescan.io/v2/network/mainnet/evm/1/address/{a}/erc20-holdings`, Blockscout fallback) + log scan. Arbitrum/Base: no free token-list API (Blockscout is Cloudflare-blocked), so each run scans incoming `Transfer` logs since the last scanned block and remembers tokens in `.positions-state.json` (CI: Actions cache `positions-state-*`; local: gitignored). → catches every position opened since 2026-10-20 on those chains.
+  - Log-scan RPCs: Tenderly public gateways (Eth/Arb allow 1M-block ranges; Base only 1,000 → ~43 calls/day). publicnode/drpc/blast/nodies don't allow topic log queries on free tiers.
+  - Spam guard: must implement `asset()`, underlying priced by coins.llama.fi, vault `totalAssets` ≥ $1M.
+  - APY: DefiLlama pool with same chain + symbol (= vault symbol) + underlying → that APY and project name (`_project_name`). Else realized 7-day share-price growth via archive RPCs (Eth: drpc/mevblocker/tenderly; Arb: 1rpc; Base: mainnet.base.org) and group "Other vaults".
+  - Not auto-discoverable (need a dedicated fetcher): rebasing aTokens of Aave forks, non-token positions (spoke/NFT/staking like Aave V4, Uniswap, Hyperliquid), Pendle PTs, non-EVM chains.
+- Lending markets with debt (e.g. Aave V4 Base "Coinbase Stocks": GOOGLc collateral / USDC debt) are collapsed into one row showing net APY on equity (supply/borrow rates in the detail line).
+- Not covered (no yield): Hyperliquid spot balances & perps, plain wallet tokens, Merkl unclaimed rewards.
 
 ## Deployment
 - **Automated**: GitHub Actions cron runs daily at 5:00 UTC (9:00 AM Dubai)
@@ -56,4 +84,6 @@ All APIs are public, no auth needed.
 - **DefiLlama**: Returns ALL pools, filtered client-side by project name and chain — response is large (~2MB)
 - **Aave V3 API**: GraphQL endpoint at `api.v3.aave.com/graphql`. Each chain may have multiple markets (e.g., Ethereum has Main, Lido, EtherFi, Horizon — they appear as separate `markets[]` entries with `name` like `AaveV3EthereumLido`). The dashboard strips the `AaveV3<Chain>` prefix to label sub-markets. `supplyInfo.apy.value` is a decimal fraction — multiply by 100 for percentage.
 - **Aave V4**: sourced from DefiLlama (`project == aave-v4`), NOT the official API. The official V4 GraphQL at `api.v4.aave.com/graphql` exists but uses a hub-and-spoke schema (`reserves`/`spokes`/`hubs` queries needing a `query` sub-object) with introspection disabled — not worth reverse-engineering when DefiLlama already exposes per-spoke pools cleanly. DefiLlama gives `poolMeta` = spoke name (core/prime/plus) and `apy` already as a percentage (do NOT × 100, unlike the V3 official API). DefiLlama labels EURC as `EUROC`. V4 is Ethereum-only at launch; new chains will appear automatically since the code filters by project, not chain.
+- **Aave V4 spoke names**: official API names spokes (Main, Maple SyrupUSDG, Coinbase Stocks…) differently from DefiLlama (Core/Prime/Plus/Global Dollar). The My Positions card uses the official API names.
+- **Responsive layout**: `.card{min-width:0}` is required or wide tables stretch grid cells past the phone viewport. Phone breakpoint `max-width:600px` (tighter padding, source labels hidden, first column wraps); 2-column grid from 640px (iPad).
 - **Morpho API schema drift**: the vault filter field was renamed `whitelisted` → `listed` (returns HTTP 400 `Field "whitelisted" is not defined` if you use the old name). Fixed 2026-06-05.

@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# Never run two updates at once (a push + manual trigger raced on 2026-10-20 and one push was rejected)
+concurrency:
+  group: update-dashboard
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -25,7 +30,20 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Memory of the new-protocol scanner (last scanned block + tokens seen per chain). Kept in the
+      # Actions cache, not the repo; if it's ever evicted the scanner just looks back a few days again.
+      - name: Restore position-scanner state
+        uses: actions/cache@v4
+        with:
+          path: .positions-state.json
+          key: positions-state-${{ github.run_id }}
+          restore-keys: positions-state-
+
       - name: Generate and validate dashboard
+        env:
+          # Tracked wallet addresses (comma-separated). Secret: never in the repo, on the page or in logs.
+          APY_WALLETS: ${{ secrets.APY_WALLETS }}
+          POSITIONS_STATE: .positions-state.json
         run: |
           for attempt in 1 2 3; do
             echo "=== Attempt $attempt of 3 ==="
@@ -40,14 +58,19 @@ jobs:
               return len(parts) > 1 and bad not in parts[1].split('</section>')[0] and 'error-msg' not in parts[1].split('</section>')[0]
           sections = {
               'Fluid':  'Ethereum' in html and 'Arbitrum' in html,
-              'Morpho': section_ok('Morpho'),
-              'Maple':  section_ok('Maple Finance'),
+              'Morpho': section_ok('</span> Morpho &mdash;'),
+              'Maple':  section_ok('</span> Maple Finance'),
               'Jupiter':'JUPUSD' in html,
-              'Ethena': section_ok('sUSDe'),
-              'Sky':    section_ok('sUSDS'),
-              'HLP':    section_ok('HLP Vault'),
-              'Aave':   section_ok('Aave V3'),
+              'Ethena': section_ok('</span> sUSDe (Ethena)'),
+              'Sky':    section_ok('</span> sUSDS (Sky)'),
+              'HLP':    section_ok('</span> Hyperliquid HLP Vault'),
+              'Aave':   section_ok('</span> Aave V3 &mdash;'),
           }
+          # My Positions: warn but don't block (a single protocol API hiccup shouldn't hold the page)
+          if '</span> My Positions' not in html:
+              print('NOTE: My Positions card missing (APY_WALLETS secret not set?)', file=sys.stderr)
+          elif 'error-msg' in html.split('</span> My Positions')[1].split('</section>')[0]:
+              print('NOTE: My Positions has unreachable sources today', file=sys.stderr)
           # Falcon API is frequently unavailable; warn but don't block
           if 'sUSDf APY' not in html:
               print('NOTE: Falcon sUSDf APY missing (API may be down — not blocking)', file=sys.stderr)

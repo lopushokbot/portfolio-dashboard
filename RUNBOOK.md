@@ -37,6 +37,8 @@
 ### Validation
 - [ ] Open `apy_dashboard.html` in browser
 - [ ] All 10 protocol cards are visible and have data (Aave shown as both V3 and V4)
+- [ ] My Positions card on top: names/assets/APYs only — no `$` anywhere in the card
+- [ ] Phone (390px) and iPad (820px): no horizontal page scroll
 - [ ] APY values look reasonable (most stablecoins 2-15%, HLP can be higher)
 - [ ] "Last updated" timestamp is current
 - [ ] No "N/A" or "Error" values (unless a protocol is genuinely down)
@@ -48,6 +50,11 @@
 | Morpho shows N/A | 504 timeout | Re-run — usually transient |
 | Maple APY looks like 10^28 | Forgot to divide `spotApy` by 1e28 | Check the Maple parsing code |
 | DefiLlama returns empty | API down or rate-limited | Check https://defillama.com/docs/api — usually back within minutes |
+| My Positions card missing | `APY_WALLETS` secret not set / empty | `gh secret set APY_WALLETS -R lopushokbot/portfolio-dashboard` (comma-separated addresses) |
+| My Positions: "Couldn't reach X" | That protocol's API/RPC failed today | Usually transient; check `[Positions] ✗` lines in the Actions log |
+| A new position isn't shown | Not an ERC-4626 vault token (e.g. Aave-fork aToken, NFT/staking position, Pendle PT) or on an uncovered chain | Add a `pos_<protocol>()` fetcher, tag rows with `token=`, register it in `fetch_positions()` |
+| "Couldn't reach new-protocol scan" | Tenderly/Routescan rate-limited or down | Transient; the scanner resumes from its saved block next run. Check `[Discovery]` lines in the log |
+| New position on Arbitrum/Base opened before 2026-10-20 missing | Log scanner only sees transfers after it went live (or after its cache was evicted, then ~1–30 days back) | Temporarily raise that chain's `first_days` in `LOG_SCAN`, delete the `positions-state-*` caches (`gh cache delete --all -R lopushokbot/portfolio-dashboard`), re-run the workflow, then set it back |
 | Jupiter shows No data | Protocol renamed/delisted on DefiLlama | Check `[Jupiter] Top Solana projects` in GH Actions logs (added 2026-10-07 for diagnostic); update project slug in `process_jupiter()` |
 | GitHub Action failed | Check workflow logs | `gh run view -R lopushokbot/portfolio-dashboard --log-failed` |
 
@@ -86,9 +93,17 @@
 
 ---
 
+## Task: Change the tracked wallets
+1. Update the secret: `gh secret set APY_WALLETS -R lopushokbot/portfolio-dashboard --body "0xAAA…,0xBBB…"`
+2. For local runs, update `wallets.local.json` in the project root (gitignored)
+3. Trigger: `gh workflow run update-dashboard.yml -R lopushokbot/portfolio-dashboard`
+
+---
+
 ## Changelog
 | Date | Change |
 |------|--------|
 | 2026-04-14 | Initial dashboard with 8 protocols, GitHub Actions cron |
 | 2026-04-27 | Added Aave V3 card (USDC/USDT ≥ 4% APY, EURC always shown, ≥ $100K supply, all chains). Source: official Aave GraphQL API at `api.v3.aave.com/graphql` — not DefiLlama, gives fresher TVL. |
 | 2026-06-05 | Added Aave V4 card (USDC/USDT/EURC across Core/Prime/Plus spokes, all shown, ≥ $25K, Ethereum-only at launch). Source: DefiLlama `aave-v4` project (no extra fetch — reuses existing /pools response). Also fixed Morpho query: filter field renamed `whitelisted` → `listed`. |
+| 2026-10-20 | Added **My Positions** card (top): APYs of the tracked wallets' positions (name, asset, APY only — no balances), grouped by protocol; dedicated fetchers for Aave V3/V4, Morpho, Maple, Fluid, sUSDf, sUSDe, Uniswap V3 LP, HYPE staking + ERC-4626 auto-discovery for new protocols (scanner state in Actions cache). Addresses only in `APY_WALLETS` secret and masked in logs. Aave V3 card ≥ $50M pools only (EURC on Ethereum/Base kept). Maple card hides Institutional – Secured Lending + Receivables Financing. Workflow: validator matches card headings, `concurrency` guard. Responsive pass for phone/iPad. |

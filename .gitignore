@@ -1,2 +1,4 @@
 __pycache__/
 *.py[cod]
+wallets.local.json
+.positions-state.json
