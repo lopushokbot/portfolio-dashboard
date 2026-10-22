@@ -11,6 +11,7 @@ Data sources:
   - Sky (sUSDS):      BlockAnalitica REST API (info-sky.blockanalitica.com)
   - Falcon Finance:   Falcon REST API (api.falcon.finance)
   - Hyperliquid HLP:  Hyperliquid REST API (api.hyperliquid.xyz)
+  - Hyperliquid Earn: same API — native HyperCore lending (USDT0, USDC, USDH supply rates)
   - My Positions:     APYs of the tracked wallets' DeFi positions (addresses from the APY_WALLETS
                       env var / wallets.local.json — never committed, never shown). Aave V3/V4, Morpho,
                       Maple, Fluid, Hyperliquid via APIs; sUSDf, sUSDe, Uniswap V3 LPs on-chain; any
@@ -193,6 +194,15 @@ def fetch_hyperliquid():
         HYPERLIQUID_URL, method="POST",
         data={"type": "vaultDetails", "vaultAddress": "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"},
     )
+
+
+def fetch_hl_earn():
+    """Hyperliquid Earn = HyperCore's native borrow/lend market. Reserves are keyed by spot token index."""
+    print("  Fetching Hyperliquid Earn...")
+    reserves = fetch_json(HYPERLIQUID_URL, method="POST", data={"type": "allBorrowLendReserveStates"})
+    meta = fetch_json(HYPERLIQUID_URL, method="POST", data={"type": "spotMeta"})
+    names = {t["index"]: t["name"] for t in (meta or {}).get("tokens", [])}
+    return {"reserves": reserves or [], "names": names}
 
 
 def fetch_falcon():
@@ -426,6 +436,23 @@ def process_hlp(data):
                 tvl = float(hist[-1][1])
                 break
     return {"apr": apr_pct, "tvl": tvl}
+
+
+def hl_earn_reserves(data):
+    """{token index: reserve} with name, supply/borrow APY (%), USD supplied, utilization."""
+    out = {}
+    for idx, r in (data or {}).get("reserves") or []:
+        px = float(r.get("oraclePx") or 0)
+        out[idx] = {"asset": data["names"].get(idx, f"#{idx}"),
+                    "apy": float(r["supplyYearlyRate"]) * 100, "borrow_apy": float(r["borrowYearlyRate"]) * 100,
+                    "tvl": float(r["totalSupplied"]) * px, "util": float(r["utilization"]) * 100, "px": px}
+    return out
+
+
+def process_hl_earn(data):
+    """Stablecoin reserves only (USDT0, USDC, USDH…), highest supply APY first."""
+    rows = [r for r in hl_earn_reserves(data).values() if r["asset"] in STABLE_SYMBOLS and r["tvl"] >= 100_000]
+    return sorted(rows, key=lambda r: r["apy"], reverse=True)
 
 
 def process_falcon(data):
@@ -930,8 +957,20 @@ def pos_uniswap_v3(wallet_idx, addr, pools):
     return rows
 
 
-def pos_hyperliquid(wallet_idx, addr, hlp):
+def pos_hyperliquid(wallet_idx, addr, hlp, hl_earn):
     rows = []
+    # Hyperliquid Earn (native lending): supplies, plus any borrows against them → net row
+    bl = fetch_json(HYPERLIQUID_URL, method="POST", data={"type": "borrowLendUserState", "user": addr}) or {}
+    reserves = hl_earn_reserves(hl_earn)
+    supplies, borrows = [], []
+    for idx, st in bl.get("tokenToState") or []:
+        res = reserves.get(idx)
+        if not res: continue
+        for side, bucket, key in (("supply", supplies, "apy"), ("borrow", borrows, "borrow_apy")):
+            usd = float((st.get(side) or {}).get("value") or 0) * res["px"]
+            if usd > 0:
+                bucket.append((res["asset"], usd, res[key]))
+    rows += _net_lending_rows(wallet_idx, "Hyperliquid", "Earn", "Hyperliquid", supplies, borrows)
     summ = fetch_json(HYPERLIQUID_URL, method="POST", data={"type": "delegatorSummary", "user": addr})
     staked = float(summ.get("delegated") or 0)
     if staked > 0:
@@ -1178,7 +1217,7 @@ def _check_vaults(chain, tokens, wallets, pools):
     return rows
 
 
-def fetch_positions(wallets, aave_markets, pools, apys, hlp):
+def fetch_positions(wallets, aave_markets, pools, apys, hlp, hl_earn):
     """Run every (source × wallet) lookup in parallel. Returns (rows, failed_source_names)."""
     jobs = {}
     for i, addr in enumerate(wallets):
@@ -1189,7 +1228,7 @@ def fetch_positions(wallets, aave_markets, pools, apys, hlp):
         jobs[("Fluid", i)] = lambda i=i, a=addr: pos_fluid(i, a, pools)
         jobs[("sUSDf/sUSDe", i)] = lambda i=i, a=addr: pos_erc4626(i, a, apys)
         jobs[("Uniswap V3", i)] = lambda i=i, a=addr: pos_uniswap_v3(i, a, pools)
-        jobs[("Hyperliquid", i)] = lambda i=i, a=addr: pos_hyperliquid(i, a, hlp)
+        jobs[("Hyperliquid", i)] = lambda i=i, a=addr: pos_hyperliquid(i, a, hlp, hl_earn)
     rows, failed = [], set()
     with ThreadPoolExecutor(max_workers=8) as ex:
         futs = {ex.submit(fn): key for key, fn in jobs.items()}
@@ -1310,7 +1349,7 @@ def positions_card(positions, n_wallets, failed):
 """
 
 
-def generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, falcon, timestamp,
+def generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, hl_earn, falcon, timestamp,
                   positions=None, n_wallets=0, pos_failed=(), aave_v4_src="Aave API"):
     def tbl_rows(data, cols):
         return [[{"v": fmt_apy(r[c]), "cls": apy_class(r[c])} if c == "apy" else
@@ -1361,6 +1400,13 @@ def generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp
         hlp_html = f'TVL: {fmt_tvl(hlp["tvl"])} | 30D APR: <strong class="{hcls}">{fmt_apy(hlp["apr"])}</strong> | Trading vault'
     else:
         hlp_html = "No data"
+
+    hl_earn_rows = [[r["asset"], {"v": fmt_apy(r["apy"]), "cls": apy_class(r["apy"])},
+                     {"v": f'{r["util"]:.0f}%', "cls": "tvl"}, {"v": fmt_tvl(r["tvl"]), "cls": "tvl"}] for r in hl_earn]
+    hl_earn_html = (make_table(["Asset", "Supply APY", "Utilization", "Supplied"], hl_earn_rows) if hl_earn_rows else
+                    'No data &mdash; check <a href="https://app.hyperliquid.xyz/earn" target="_blank" rel="noopener">app.hyperliquid.xyz/earn</a>')
+    if not hl_earn_rows:
+        hl_earn_html = f'<p class="error-msg">{hl_earn_html}</p>'
 
     if falcon and falcon.get("apy") is not None:
         fcls = apy_class(falcon["apy"])
@@ -1465,6 +1511,13 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
   <p class="note">Net APY includes FLUID token rewards where applicable.</p>
 </section>
 
+<section class="card wide">
+  <span class="src">Hyperliquid API</span>
+  <h2><span class="icon">&#x1F7E3;</span> Hyperliquid Earn &mdash; USDT / USDC</h2>
+  <div class="table-wrap">{hl_earn_html}</div>
+  <p class="note">Native HyperCore lending, paid continuously. Supply APY = borrow rate &times; utilization, minus Hyperliquid&rsquo;s 10% cut (borrow rate is a flat 5% below 80% utilization). USDT here is USDT0.</p>
+</section>
+
 <section class="card">
   <span class="src">Hyperliquid API</span>
   <h2><span class="icon">&#x1F7E3;</span> Hyperliquid HLP Vault</h2>
@@ -1524,7 +1577,7 @@ footer .legend{{margin-top:.4rem;font-size:.75rem;opacity:.6}}
 </div>
 <footer>
   <span>Last updated: {ts_display}</span>
-  <div class="legend">Sources: Protocol APIs (Aave V3 &amp; V4, Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid) &middot; DefiLlama (Fluid, Jupiter) &middot; My Positions: Aave V3/V4, Morpho, Maple, Fluid, Hyperliquid APIs + on-chain reads</div>
+  <div class="legend">Sources: Protocol APIs (Aave V3 &amp; V4, Maple, Morpho, Ethena, Sky, Falcon, Hyperliquid HLP &amp; Earn) &middot; DefiLlama (Fluid, Jupiter) &middot; My Positions: Aave V3/V4, Morpho, Maple, Fluid, Hyperliquid APIs + on-chain reads</div>
 </footer>
 </div>
 </body>
@@ -1546,6 +1599,7 @@ def main():
             pool.submit(fetch_ethena): "ethena",
             pool.submit(fetch_sky): "sky",
             pool.submit(fetch_hyperliquid): "hlp",
+            pool.submit(fetch_hl_earn): "hl_earn",
             pool.submit(fetch_falcon): "falcon",
             pool.submit(fetch_aave): "aave",
             pool.submit(fetch_aave_v4): "aave_v4",
@@ -1567,6 +1621,7 @@ def main():
     ethena = process_ethena(results.get("ethena") or {})
     sky = process_sky(results.get("sky"))
     hlp = process_hlp(results["hlp"]) if results.get("hlp") else None
+    hl_earn = process_hl_earn(results.get("hl_earn"))
     falcon = process_falcon(results["falcon"]) if results.get("falcon") else None
     aave = process_aave(results.get("aave"))
 
@@ -1588,7 +1643,7 @@ def main():
     if wallets:
         print(f"\n  Fetching positions for {len(wallets)} wallet(s)...")
         apys = {"falcon": (falcon or {}).get("apy"), "ethena": (ethena or {}).get("apy")}
-        pos_rows, pos_failed = fetch_positions(wallets, results.get("aave"), pools, apys, hlp)
+        pos_rows, pos_failed = fetch_positions(wallets, results.get("aave"), pools, apys, hlp, results.get("hl_earn"))
         positions = merge_positions(pos_rows, len(wallets))
 
     # Aave V4 card: official API (spoke names match My Positions); DefiLlama only as fallback
@@ -1608,6 +1663,7 @@ def main():
     print(f"  Ethena:  {'✓ ' + fmt_apy(ethena['apy']) if ethena else '✗'} (Ethena API)")
     print(f"  Sky:     {'✓ ' + fmt_apy(sky['apy']) if sky else '✗'} (Sky API)")
     print(f"  HLP:     {'✓' if hlp else '✗'} (Hyperliquid API)")
+    print(f"  HL Earn: {len(hl_earn)} reserves (" + ", ".join(f"{r['asset']} {fmt_apy(r['apy'])}" for r in hl_earn) + ")")
     print(f"  Falcon:  {'✓ ' + fmt_apy(falcon['apy']) if falcon else '✗'} (Falcon API)")
     print(f"  Aave:    {len(aave)} reserves shown (Aave API)")
     print(f"  Aave V4: {len(aave_v4)} pools shown ({aave_v4_src})")
@@ -1616,7 +1672,7 @@ def main():
     else:
         print("  My Positions: skipped (no APY_WALLETS env / wallets.local.json)")
 
-    html = generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, falcon, timestamp,
+    html = generate_html(fluid, morpho, maple, jupiter, aave, aave_v4, ethena, sky, hlp, hl_earn, falcon, timestamp,
                          positions, len(wallets), pos_failed, aave_v4_src)
     with open("apy_dashboard.html", "w", encoding="utf-8") as f:
         f.write(html)

@@ -1,7 +1,7 @@
 # Stablecoin APY Dashboard
 
 ## Overview
-Auto-updating DeFi stablecoin yield comparison dashboard. Fetches APY data from 9 protocols (Aave shown as V3 + V4) via direct APIs, plus a My Positions card for the tracked wallets, generates a static HTML page, deployed to GitHub Pages via daily GitHub Actions cron.
+Auto-updating DeFi stablecoin yield comparison dashboard. Fetches APY data from 10 protocols (Aave shown as V3 + V4) via direct APIs, plus a My Positions card for the tracked wallets, generates a static HTML page, deployed to GitHub Pages via daily GitHub Actions cron.
 
 ## Live URLs
 | Environment | URL |
@@ -40,6 +40,7 @@ Single-file architecture: `generate_dashboard.py` does everything — fetch, par
 | Sky (sUSDS) | `info-sky.blockanalitica.com/api/v1/overall/` | GET | `sky_savings_rate_apy * 100` |
 | Falcon Finance | `api.falcon.finance/api/v1/statistics` | GET | `sUSDf_7d_apy * 100` |
 | Hyperliquid HLP | `api.hyperliquid.xyz/info` | POST | `vaultDetails` for HLP vault address |
+| Hyperliquid Earn | `api.hyperliquid.xyz/info` | POST | `allBorrowLendReserveStates` (native HyperCore lending) + `spotMeta` for token names (0 = USDC, 268 = USDT0, 360 = USDH). `supplyYearlyRate` decimal (× 100). Card shows stablecoin reserves ≥ $100K supplied, sorted by APY. Supply APY = 5% flat borrow rate (below 80% util) × utilization × 0.9 |
 | Aave V3 | `api.v3.aave.com/graphql` | POST (GraphQL) | All chains; pools ≥ $50M supplied only (`AAVE_MIN_TVL`), USDC/USDT also need APY ≥ 4%. Exception: EURC on Ethereum + Base always shown (min $100K). `supplyInfo.apy.value` is decimal (× 100 for %) |
 | Aave V4 | `api.v4.aave.com/graphql` (official; DefiLlama `aave-v4` as fallback) | POST (GraphQL) | `reserves(request:{query:{chainIds}})` across all mainnet V4 chains (`chains(MAINNET_ONLY)`). APY = `supplyApy` + Merkl `extraApy`. Card rule: USDC/USDT with ≥ $10M supplied AND APY > 4%; EURC always (≥ $25K); pools where My Positions has a supply always shown with a "Held" tag (matched on chain + official spoke name + symbol) |
 
@@ -62,7 +63,7 @@ Top card: APYs of the tracked wallets' DeFi positions in one table — **positio
 | Fluid | `api.fluid.instadapp.io/v2/lending/{chain}/users/{addr}/positions` | DefiLlama (incl. Merkl), fallback Fluid `totalRate` |
 | sUSDf, sUSDe | on-chain ERC-4626 `balanceOf` → `convertToAssets` (publicnode RPC) | Falcon / Ethena APIs (same as their cards) |
 | Uniswap V3 LPs | on-chain NFT enumeration + `positions` + pool `slot0` on Eth/Arb/Base | DefiLlama pool 7d fee APR if in range, 0 if out of range |
-| Hyperliquid | `delegatorSummary`/`delegations` (HYPE staking), `userVaultEquities` (vaults) | validator `predictedApr` (month); HLP from vault APR |
+| Hyperliquid | `delegatorSummary`/`delegations` (HYPE staking), `userVaultEquities` (vaults), `borrowLendUserState` (Earn supply/borrow → "Earn" row; net row if borrowing) | validator `predictedApr` (month); HLP from vault APR; Earn from reserve `supplyYearlyRate`/`borrowYearlyRate` |
 
 - **Auto-discovery of new protocols** (`discover_vaults()`, second pass): any **ERC-4626 vault token** a wallet holds that no fetcher above already reported (fetchers tag rows with their receipt-token address).
   - Candidates — Ethereum: full token list from Routescan (`api.routescan.io/v2/network/mainnet/evm/1/address/{a}/erc20-holdings`, Blockscout fallback) + log scan. Arbitrum/Base: no free token-list API (Blockscout is Cloudflare-blocked), so each run scans incoming `Transfer` logs since the last scanned block and remembers tokens in `.positions-state.json` (CI: Actions cache `positions-state-*`; local: gitignored). → catches every position opened since 2026-10-20 on those chains.

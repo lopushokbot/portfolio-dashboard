@@ -49,7 +49,7 @@ jobs:
             echo "=== Attempt $attempt of 3 ==="
             python3 scripts/generate_dashboard.py
 
-            # Validate core protocol sections have data (9 protocols total)
+            # Validate core protocol sections have data (10 protocols total)
             result=$(python3 -c "
           import sys
           html = open('apy_dashboard.html').read()
@@ -64,6 +64,7 @@ jobs:
               'Ethena': section_ok('</span> sUSDe (Ethena)'),
               'Sky':    section_ok('</span> sUSDS (Sky)'),
               'HLP':    section_ok('</span> Hyperliquid HLP Vault'),
+              'HLEarn': section_ok('</span> Hyperliquid Earn'),
               'Aave':   section_ok('</span> Aave V3 &mdash;'),
           }
           # My Positions: warn but don't block (a single protocol API hiccup shouldn't hold the page)
@@ -82,7 +83,7 @@ jobs:
           ")
 
             if [ "$result" = "OK" ]; then
-              echo "✓ All 9 core sections validated"
+              echo "✓ All 10 core sections validated"
               break
             else
               echo "✗ $result"

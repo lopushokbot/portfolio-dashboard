@@ -36,7 +36,7 @@
 
 ### Validation
 - [ ] Open `apy_dashboard.html` in browser
-- [ ] All 10 protocol cards are visible and have data (Aave shown as both V3 and V4)
+- [ ] All 11 protocol cards are visible and have data (Aave shown as both V3 and V4)
 - [ ] My Positions card on top: names/assets/APYs only — no `$` anywhere in the card
 - [ ] Phone (390px) and iPad (820px): no horizontal page scroll
 - [ ] APY values look reasonable (most stablecoins 2-15%, HLP can be higher)
@@ -108,3 +108,4 @@
 | 2026-06-05 | Added Aave V4 card (USDC/USDT/EURC across Core/Prime/Plus spokes, all shown, ≥ $25K, Ethereum-only at launch). Source: DefiLlama `aave-v4` project (no extra fetch — reuses existing /pools response). Also fixed Morpho query: filter field renamed `whitelisted` → `listed`. |
 | 2026-10-20 | Added **My Positions** card (top): APYs of the tracked wallets' positions (name, asset, APY only — no balances), grouped by protocol; dedicated fetchers for Aave V3/V4, Morpho, Maple, Fluid, sUSDf, sUSDe, Uniswap V3 LP, HYPE staking + ERC-4626 auto-discovery for new protocols (scanner state in Actions cache). Addresses only in `APY_WALLETS` secret and masked in logs. Aave V3 card ≥ $50M pools only (EURC on Ethereum/Base kept). Maple card hides Institutional – Secured Lending + Receivables Financing. Workflow: validator matches card headings, `concurrency` guard. Responsive pass for phone/iPad. |
 | 2026-10-20 | Aave V4 card switched to the official V4 API: USDC/USDT pools ≥ $10M with APY > 4% (incl. Merkl), EURC always, pools with a tracked position always ("Held" tag). DefiLlama kept as fallback. |
+| 2026-10-22 | Added **Hyperliquid Earn** card (wide, under Fluid): native HyperCore lending supply APY for USDT0 / USDC / USDH via `allBorrowLendReserveStates`. My Positions now also picks up Earn supplies/borrows (`borrowLendUserState`). CI validator checks the new card. |
